@@ -4,7 +4,7 @@
 !>  This Model ontains all of the code related to running the MYNN surface layer scheme
       MODULE mynnsfc_wrapper
 
-          USE module_sf_mynn
+          USE module_sf_mynnsfc
 
           !Global variables:
           INTEGER, PARAMETER :: psi_opt = 0   !0: MYNN
@@ -97,7 +97,7 @@ SUBROUTINE mynnsfc_wrapper_run(            &
       use physcons, only : cp     => con_cp,              &
      &                     grav   => con_g
 
-!      USE module_sf_mynn, only : SFCLAY_mynn
+!      USE module_sf_mynnsfc, only : SFCLAY_mynn
 !tgs - info on iterations:
 !     flag_iter- logical, execution or not (im)
 !                when iter = 1, flag_iter = .true. for all grids   im   !
@@ -352,7 +352,7 @@ SUBROUTINE mynnsfc_wrapper_run(            &
         !   !* ch         = surface exchange coeff heat & moisture(m/s) im
         !   !* rch(i)     = rho_a(i) * cp * ch(i) * wind(i)
         !   !* hflx(i)    = rch(i) * (tsurf(i) - theta1(i))  !K m s-1
-        !   !* hflx(i)=hfx(i)/(rho(i,1)*cp) - now calculated inside module_sf_mynn.F90
+        !   !* hflx(i)=hfx(i)/(rho(i,1)*cp) - now calculated inside module_sf_mynnsfc.F90
         !   !* Taken from sfc_nst.f
         !   !* evap(i)    = elocp * rch(i) * (qss(i) - q0(i)) !kg kg-1 m s-1
         !   !NOTE: evap & qflx will be solved for later

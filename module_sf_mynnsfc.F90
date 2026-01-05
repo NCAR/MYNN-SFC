@@ -1,11 +1,11 @@
-!>\file module_sf_mynn.F90
+!>\file module_sf_mynnsfc.F90
 !! This file contains
 !WRF:MODEL_LAYER:PHYSICS
 !
 !>\ingroup mynn_sfc
 !> This module contain routines to calculate stability parameters, kinematic siscosity
 !! in MYNN surface layer scheme
-MODULE module_sf_mynn
+MODULE module_sf_mynnsfc
 
 !-------------------------------------------------------------------
 !Modifications implemented by Joseph Olson NOAA/GSL
@@ -4084,4 +4084,4 @@ END SUBROUTINE SFCLAY1D_mynn
    end function
 !========================================================================
 
-END MODULE module_sf_mynn
+END MODULE module_sf_mynnsfc
