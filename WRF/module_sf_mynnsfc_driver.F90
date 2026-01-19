@@ -1,6 +1,7 @@
 !> \file module_sf_mynnsfc_driver.F90
 !!  This serves as the interface between the WRF surface driver and the MYNN
-!!  surface-layer scheme in module_sfc_mynnsfc.F90.                                                                                                                
+!!  surface-layer scheme(s) in module_sfc_mynnsfc_land.F90, module_sfc_mynnsfc_ice.F90, and
+!!  module_sfc_mynnsfc_water.F90.
 
 !>\ingroup gsd_mynnsfc
 !> The following references best describe the code within
@@ -24,8 +25,8 @@
 !!   old option "isftcflx" is now "sf_mynn_sfcflux_water":
 !!             =0: z0, zt, and zq from COARE 3.0 (Fairall et al. 2003)
 !!   (default) =1: z0, zt, and zq from COARE 3.5 (Edson et al 2013)
-!!             =2: z0 from Davis et al (2008), zt & zq from COARE 3.5                                                                                                                            
-!!             =3: z0 from Davis et al (2008), zt & zq from Garratt (1992)                                                                                                                           
+!!             =2: z0 from Davis et al (2008), zt & zq from COARE 3.5
+!!             =3: z0 from Davis et al (2008), zt & zq from Garratt (1992)
 !!             =4: z0 from Taylor and Yelland (2004), zt and zq from COARE 3.5
 !!
 !! This way, the new sf_mynn* options exist in all model frameworks (WRF/MPAS/CCPP)
@@ -215,10 +216,13 @@
  logical,intent(inout),optional:: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
  logical,intent(inout),optional:: flag_iter
  
- !Input data
+ !Input data needed for GFS-related options
  integer, dimension(ims:ime,jms:jme), optional, intent(in) :: vegtype
  real(kind_phys),dimension(ims:ime,jms:jme),optional,intent(in):: &
       sigmaf,shdmax,z0pert,ztpert
+
+ !threshold for choosing snow/ice points (In WRF, snowh is in meters)
+ real,parameter:: snow_thresh = 0.05 !5 cm
 
  !phycical constants - now coming in through the common module
 ! real(kind_phys),intent(in):: svp1,svp2,svp3,svpt0
@@ -478,7 +482,7 @@
           fh2_1    = zero  !ccpp
        endif
 
-       if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .lt. 50)) then 
+       if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .lt. snow_thresh)) then !5 cm threshold for binary snow/no-snow 
           call mynnsfc_land( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -514,7 +518,7 @@
                     )
        endif
 
-       if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. 50)) then
+       if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) then !5 cm threshold for binary snow/no-snow 
           call mynnsfc_ice( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
