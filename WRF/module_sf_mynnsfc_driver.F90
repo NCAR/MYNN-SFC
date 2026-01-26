@@ -63,7 +63,8 @@
  private
  public:: mynnsfc_driver, &
           mynnsfc_init,   &
-          mynnsfclay_finalize      
+          mynnsfclay_finalize, &
+          psi_init      
 
  contains
   

@@ -16,7 +16,7 @@
 ! For MPAS:
 ! use mpas_kind_types,only: kind_phys => RKIND
 ! For WRF:
-  use ccpp_kind_types,  only : kind_phys
+  use machine,  only : kind_phys
 
 !WRF CONSTANTS
   use module_model_constants, only:         &
