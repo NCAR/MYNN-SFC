@@ -129,11 +129,11 @@ CONTAINS
        t2          , q2          , flhc        , flqc        , &
        lh          , gz1oz0      , wspd        , rb          , &
        cpm         , ch          , cm          , rstoch_1    , &
-       wstar       , qstar       , &
+       wstar       , qstar       ,                             &
        ck          , cka         , cd          , cda         , &
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
        !namelist configuration options
-       spp_sfc     , ISFFLX      ,                             &
+       spp_sfc     , isfflx      ,                             &
        flag_restart,flag_cycle   , psi_opt     ,               &
        compute_flux,compute_diag ,                             &
        iter        , lsm         , lsm_ruc     ,               &

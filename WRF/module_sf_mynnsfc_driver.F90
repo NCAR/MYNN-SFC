@@ -110,11 +110,11 @@
         !2d variables
         psfcpa   , chs      , chs2     , cqs      , cqs2     , cpm       , &
         znt      , ust      , ustm     , pblh     , mavail   , zol       , &
-        mol      , rmol     , regime   , psim     , psih     , xland     , &
+        mol      , rmol     , psim     , psih     , xland    ,             &
         hfx      , qfx      , lh       , tsk      , flhc     , flqc      , &
         qsfc     , u10      , v10      , th2      , t2       ,             &
         q2       , snowh    , gz1oz0   , wspd     , br       , dx        , &
-        ch       , qcg      , ck       , cka      , cd       , cda       , &
+        ch       , ck       , cka      , cd       , cda      ,             &
         stress   , hflx     , qflx     , cm       , fm       , fh        , &
         fm10     , fh2      , tsurf    ,                                   &
         !configuration options
@@ -153,7 +153,6 @@
 !-- zol         z/l height over monin-obukhov length
 !-- mol         t* (similarity theory) (k)
 !-- rmol        reciprocal of m-o length (/m)
-!-- regime      flag indicating pbl regime (stable, unstable, etc.)
 !-- psim        similarity stability function for momentum
 !-- psih        similarity stability function for heat
 !-- xland       land mask (1 for land, 2 for water)
@@ -256,7 +255,6 @@
     mavail, &
     xland,  &
     tsk,    &
-    qcg,    &
     psfcpa, &
     snowh,  &
     dx
@@ -291,7 +289,6 @@
     stress
   
  real(kind_phys),intent(inout),dimension(ims:ime,jms:jme):: &
-    regime, &
     pblh,   &
     hfx,    &
     qfx,    &
@@ -324,10 +321,10 @@
 
 !intermediate single-point variables will be *_1
  real(kind_phys) :: mavail_1,pblh_1,xland_1,tsk_1,psfcpa_1,           &
-                     qcg_1,snowh_1,dx_1
+                     snowh_1,dx_1
  real(kind_phys) :: u_1,v_1,u_2,v_2,qv_1,p_1,t_1,rho_1,dz8w_1,        &
                      dz8w_2,rstoch_1
- real(kind_phys) :: regime_1,hfx_1,qfx_1,lh_1,mol_1,rmol_1,           &
+ real(kind_phys) :: hfx_1,qfx_1,lh_1,mol_1,rmol_1,                    &
                      qsfc_1,znt_1,zol_1,ust_1,cpm_1,chs2_1,           &
                      cqs_1,cqs2_1,chs_1,ch_1,flhc_1,flqc_1,gz1oz0_1,  &
                      wspd_1,br_1,psim_1,psih_1
@@ -405,12 +402,10 @@
        xland_1  = xland(i,j)
        tsk_1    = tsk(i,j)
        psfcpa_1 = psfcpa(i,j)
-       qcg_1    = qcg(i,j)
        snowh_1  = snowh(i,j)
        dx_1     = dx(i,j)
 
        !inout arguments:
-       regime_1 = regime(i,j)
        hfx_1    = hfx(i,j)
        qfx_1    = qfx(i,j)
        hflx_1   = hfx_1/(cp*rho_1) !ccpp
@@ -611,7 +606,6 @@
        endif
        
        !inout arguments:
-       regime(i,j) = regime_1
        hfx(i,j)    = hfx_1
        qfx(i,j)    = qfx_1
        lh(i,j)     = lh_1

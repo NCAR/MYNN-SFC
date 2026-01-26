@@ -130,7 +130,7 @@ SUBROUTINE mynnsfc_land( &
        t2          , q2          , flhc        , flqc        , &
        lh          , gz1oz0      , wspd        , rb          , &
        cpm         , ch          , cm          , rstoch_1    , &
-       wstar       , qstar       , &
+       wstar       , qstar       ,                             &
        ck          , cka         , cd          , cda         , &
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
        !namelist configuration options
@@ -903,7 +903,10 @@ else                             !land
 
    !Option to modify CZIL according to Chen & Zhang, 2009
    if ( iz0tlnd2 .eq. 1 ) then
-      czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
+      !designed for Noah LSM
+      !czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
+      !try for RUC LSM (varies a little bit less than the above form)
+      czil = 0.05_kind_phys + 29.0_kind_phys ** ( -0.40_kind_phys * ( (z_0 + 0.04_kind_phys) / 0.07_kind_phys ) )
    else
       czil = 0.095_kind_phys !0.075 !0.10
    endif
