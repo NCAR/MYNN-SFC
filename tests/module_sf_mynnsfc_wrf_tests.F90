@@ -6,6 +6,7 @@ module module_sf_mynnsfc_wrf_tests
     implicit none
     logical :: cycling,restart
     integer :: initflag, spp_pbl
+    real,dimension(1) :: pattern_spp_pbl
 
     contains
 
@@ -13,8 +14,9 @@ module module_sf_mynnsfc_wrf_tests
       write(*,*) '--- calling  init_mynn_sfc_flags()'
        cycling=.false.
        initflag=1
-       spp_pbl=0
+       spp_pbl=1
        restart=.false.
+       pattern_spp_pbl=0.0
 
       ! for future use
     end subroutine init_mynn_sfc_flags
@@ -249,7 +251,7 @@ module module_sf_mynnsfc_wrf_tests
       character(len=512) :: errmsg
       integer :: errflg
       ! Initialize 3D variables
-      real, dimension(64) ::  u3d, v3d, t3d, qv3d, p3d, dz8w, th3d, rho3d  ! size 10 example
+      real, dimension(64) ::  u3d, v3d, t3d, qv3d, p3d, dz8w, th3d, rho3d  ! 64 is random number
       u3d=0.0
       v3d=0.0
       t3d=0.0
@@ -360,7 +362,7 @@ module module_sf_mynnsfc_wrf_tests
               fm10=psix10_lnd, fh2=psit2_lnd,                                                        &
               tsurf=tsurf_lnd    ,                                                                   &
               !configuration options
-              spp_pbl=spp_pbl, &!pattern_spp_pbl     ,                                   &
+              spp_pbl=spp_pbl, pattern_spp_pbl=pattern_spp_pbl,                                                 &
               sf_mynn_sfcflux_water=iz0tlnd          ,                                               &
               sf_mynn_sfcflux_land=iz0tlnd           ,                                               &
               isfflx=ISFFLX, restart=restart, cycling=cycling, initflag=1,                           &
