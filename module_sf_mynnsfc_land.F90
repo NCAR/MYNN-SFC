@@ -134,7 +134,7 @@ SUBROUTINE mynnsfc_land( &
        ck          , cka         , cd          , cda         , &
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
        !namelist configuration options
-       spp_sfc     , sf_mynn_sfcflux_land      , ISFFLX      , &
+       spp_sfc     , sf_mynn_sfcflux_land      , isfflx      , &
        flag_restart,flag_cycle   , psi_opt     ,               &
        compute_flux,compute_diag ,                             &
        iter        , lsm         , lsm_ruc     ,               &
@@ -440,11 +440,7 @@ if (flag_iter) then
          call zilitinkevich_1995(zntstoch,zt,zq,restar,&
               ust,karman,one,sf_mynn_sfcflux_land,spp_sfc,rstoch_1)
       elseif ( sf_mynn_sfcflux_land .eq. 2 ) then
-         ! DH note - at this point, qstar is either not initialized
-         ! or initialized to zero, but certainly not set correctly
-         !errmsg = 'Logic error: qstar is not set correctly when calling Yang_2008'
-         !errflg = 1
-         call yang_2008(zntstoch,zt,zq,ust,mol,qstar,restar,visc)
+         call yang_2008(zntstoch,zt,zq,ust,mol,qstar,restar,visc,spp_sfc,rstoch_1)
       elseif ( sf_mynn_sfcflux_land .eq. 3 ) then
          !original mynn in wrf-arw used this form:
          call garratt_1992(zt,zq,zntstoch,restar,one)
@@ -638,7 +634,7 @@ if (flag_iter) then
    !t_star = -hfx/(ust*cpm*rho_1)
    !t_star = mol
    !----------------------------------------------------
-   dqg=(qvsh-qsfc)*1000.   !(kg/kg -> g/kg)
+   dqg=(qvsh-qsfc)*1000._kind_phys   !(kg/kg -> g/kg)
    qstar=karman*dqg/psiq/prt
 
 endif ! flag_iter
@@ -925,9 +921,9 @@ else                             !land
       zq = zt
    endif
 
-ENDIF
+endif
 
-END SUBROUTINE zilitinkevich_1995
+end subroutine zilitinkevich_1995
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !> This formulation for the thermal and moisture roughness lengths
@@ -983,34 +979,45 @@ end subroutine garratt_1992
 !!Zt was reduced too much for low-moderate positive heat fluxes.
 !!
 !!This should only be used over land!
-subroutine yang_2008(z_0,zt,zq,ustar,tstar,qst,ren,visc)
+subroutine yang_2008(z_0,zt,zq,ustar,tstar,qst,ren,visc,spp_sfc,rstoch)
 
 implicit none
-real(kind_phys), intent(in)  :: z_0, ren, ustar, tstar, qst, visc
+real(kind_phys), intent(in)  :: z_0,ustar,tstar,qst,ren,visc,rstoch
+integer, intent(in) :: spp_sfc
+real(kind_phys), intent(out) :: zt,zq
+!local variables:
 real(kind_phys) ::      ht,     &! roughness height at critical reynolds number
                         tstar2, &! bounded t*, forced to be non-positive
                         qstar2, &! bounded q*, forced to be non-positive
                         z_02,   &! bounded z_0 for variable renc2 calc
                         renc2    ! variable renc, function of z_0
-real(kind_phys), intent(out) :: zt,zq
-real(kind_phys), parameter   :: renc=300., & !old constant renc
-                                beta=1.5,  & !important for diurnal variation
-                                m=170.,    & !slope for renc2 function
-                                b=691.       !y-intercept for renc2 function
+!local parameters:
+real(kind_phys), parameter :: renc=300., & !old constant renc
+                              beta=1.5,  & !important for diurnal variation
+                              m=170.,    & !slope for renc2 function
+                              b=691.       !y-intercept for renc2 function
 
-z_02   = min(z_0,0.5_kind_phys)
+z_02   = min(z_0 , p5)
 z_02   = max(z_02,0.04_kind_phys)
 renc2  = b + m*log(z_02)
 ht     = renc2*visc/max(ustar,0.01_kind_phys)
 tstar2 = min(tstar, -0.01_kind_phys)
 qstar2 = min(qst,   -0.01_kind_phys)
 
-zt     = ht * exp(-beta*sqrt(ustar)*(abs(tstar2)**1))
-zq     = ht * exp(-beta*sqrt(ustar)*(abs(qstar2)**1))
-!zq     = zt
+zt     = ht * exp(-beta*sqrt(ustar)*abs(tstar2))
+!zq     = ht * exp(-beta*sqrt(ustar)*abs(qstar2))
+zq     = zt
 
-zt = min(zt, z_0/two)
-zq = min(zq, z_0/two)
+zt = min(zt, z_0 * p5)
+zq = min(zq, z_0 * p5)
+
+! stochastically perturb thermal and moisture roughness length.
+! currently set to half the amplitude:
+if (spp_sfc==1) then
+   zt = zt + zt * p5 * rstoch
+   zt = max(zt, 0.0001_kind_phys)
+   zq = zt
+endif
 
 end subroutine yang_2008
 !--------------------------------------------------------------------
