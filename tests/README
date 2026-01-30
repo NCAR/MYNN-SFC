@@ -1,0 +1,12 @@
+CI tests for MYNN SFC include the following cases:
+
+ccpp_test(), on July 13, 2019 at SGP site
+wrf_test('lnd'), on Aug 23, 2024 near (41.91, -73.12)
+wrf_test('wat'), on Aug 23, 2024 near (41.78, -67.61)
+wrf_test('icy'), on Feb 28, 2024 near (46.54, -73.53)
+
+To run the CI tests offline:
+
+cd tests
+make
+./driver
