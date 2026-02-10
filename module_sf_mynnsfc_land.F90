@@ -32,7 +32,7 @@ MODULE module_sf_mynnsfc_land
 !   LAND only:
 !   "sf_mynn_sfcfulx_land" namelist option is used to select the following momentum options:
 !   (default) =0: Zilitinkevich (1995); Czil now set to 0.095
-!             =1: Ssame as 0, but with vegetation-dependent Czil (according to Chen & Zhang 2008)
+!             =1: Same as 0, but with z0-dependent Czil (according to Chen & Zhang 2008)
 !             =2: Modified Yang et al (2002, 2008) - generalized for all landuse
 !             =3: constant zt = z0/7.4 (original form; Garratt 1992)
 !             =4: GFS - taken from sfc_diff.f, for comparison/testing
@@ -55,7 +55,7 @@ MODULE module_sf_mynnsfc_land
       ep1 => p608  , & !=Rv/Rd - 1
       ep2 => ep_2  , & !=Rd/Rv
       ep3 => ep_3  , & !=1-ep_2 = 0.378
-      rvovrd       , & != r_v/r_d != 1.608
+      rvovrd       , & !=r_v/r_d != 1.608
       karman       , & !=0.4
       g_inv        , & !=1/grav
       kind_phys        !model framework specified precision
@@ -92,6 +92,7 @@ real(kind_phys), parameter :: p25           = 0.25
 real(kind_phys), parameter :: p333          = 1./3.
 real(kind_phys), parameter :: p5            = 0.5
 real(kind_phys), parameter :: p666          = 2./3.
+real(kind_phys), parameter :: p75           = 0.75
 real(kind_phys), parameter :: p9            = 0.9
 
 !For debugging purposes:
@@ -430,7 +431,7 @@ if (flag_iter) then
    zntstoch = min(zntstoch, dz8w_1*0.0666_kind_phys)
 
    !compute roughness reynolds number (restar) using default znt
-   restar=max(ust*zntstoch/visc, 0.1_kind_phys)
+   restar=max(ust*zntstoch/visc, p1)
 
    !--------------------------------------
    !get z_t and z_q
@@ -438,9 +439,9 @@ if (flag_iter) then
    if ( present(sf_mynn_sfcflux_land) ) then
       if ( sf_mynn_sfcflux_land .le. 1 ) then
          call zilitinkevich_1995(zntstoch,zt,zq,restar,&
-              ust,karman,one,sf_mynn_sfcflux_land,spp_sfc,rstoch_1)
+              ust,karman,one,sf_mynn_sfcflux_land,lsm,lsm_ruc)
       elseif ( sf_mynn_sfcflux_land .eq. 2 ) then
-         call yang_2008(zntstoch,zt,zq,ust,mol,qstar,restar,visc,spp_sfc,rstoch_1)
+         call yang_2008(zntstoch,zt,zq,ust,mol,qstar,restar,visc)
       elseif ( sf_mynn_sfcflux_land .eq. 3 ) then
          !original mynn in wrf-arw used this form:
          call garratt_1992(zt,zq,zntstoch,restar,one)
@@ -452,7 +453,19 @@ if (flag_iter) then
    else
       !default to zilitinkevich
       call zilitinkevich_1995(zntstoch,zt,zq,restar,&
-                   ust,karman,one,0,spp_sfc,rstoch_1)
+                   ust,karman,one,0,lsm,lsm_ruc)
+   endif
+
+   ! stochastically perturb thermal and moisture roughness length.
+   ! currently set to half the amplitude:
+   if (spp_sfc==1) then
+      zt = zt + zt * p75 * rstoch_1
+      zq = zq + zq * p75 * rstoch_1
+
+      zt = min( zt, p75 * zntstoch)
+      zt = max( zt, 0.0001_kind_phys)
+      zq = min( zq, p75 * zntstoch)
+      zq = max( zq, 0.0001_kind_phys)
    endif
 
    gz1oz0= log((za+zntstoch)/zntstoch)
@@ -860,66 +873,59 @@ end subroutine mynnsfc_land
 !! land and water, respectively.
 !!
 !! MODS:
-!! 20120705 : added IZ0TLND option. Note: This option was designed
+!! 20120705 : Note: The zt_opt=1 option was designed
 !!            to work with the Noah LSM and may be specific for that
-!!            LSM only. Tests with RUC LSM showed no improvements.
+!!            LSM only. An alternate version was added to better
+!!            work with the RUC LSM.
 subroutine zilitinkevich_1995(z_0,zt,zq,restar,ustar,karman,&
-        & landsea,iz0tlnd2,spp_sfc,rstoch)
+        &                     landsea,zt_opt,lsm,lsm_ruc)
 
 implicit none
-real(kind_phys), intent(in)       :: z_0,restar,ustar,karman,landsea
-integer,  optional,   intent(in)  :: iz0tlnd2
-real(kind_phys), intent(out)      :: zt,zq
+real(kind_phys), intent(in)  :: z_0,restar,ustar,karman,landsea
+integer,optional,intent(in)  :: zt_opt
+real(kind_phys), intent(out) :: zt,zq
 real(kind_phys) :: czil       !=0.100 in chen et al. (1997)
                               !=0.075 in zilitinkevich (1995)
                               !=0.500 in lemone et al. (2008)
-integer,  intent(in)  ::    spp_sfc
-real(kind_phys), intent(in)  :: rstoch
+integer,         intent(in)  :: lsm,lsm_ruc
 
-if (landsea-1.5 .gt. 0) then    !water
-   !THIS IS BASED ON Zilitinkevich, Grachev, and Fairall (2001;
-   !Their equations 15 and 16).
+if (landsea-1.5 .gt. zero) then    !water
+   !this is based on Zilitinkevich, Grachev, and Fairall (2001),
+   !their equations 15 and 16:
    if (restar .lt. 0.1) then
-      zt = z_0*exp(karman*2.0)
+      zt = z_0*exp(karman*two)
       zt = min( zt, 6.0e-5_kind_phys)
       zt = max( zt, 2.0e-9_kind_phys)
-      zq = z_0*exp(karman*3.0)
+      zq = z_0*exp(karman*three)
       zq = min( zq, 6.0e-5_kind_phys)
       zq = max( zq, 2.0e-9_kind_phys)
    else
-      zt = z_0*exp(-karman*(4.0*sqrt(restar)-3.2))
+      zt = z_0*exp(-karman*(four*sqrt(restar)-3.2_kind_phys))
       zt = min( zt, 6.0e-5_kind_phys)
       zt = max( zt, 2.0e-9_kind_phys)
-      zq = z_0*exp(-karman*(4.0*sqrt(restar)-4.2))
+      zq = z_0*exp(-karman*(four*sqrt(restar)-4.2_kind_phys))
       zq = min( zt, 6.0e-5_kind_phys)
       zq = max( zt, 2.0e-9_kind_phys)
    endif
 
 else                             !land
 
-   !Option to modify CZIL according to Chen & Zhang, 2009
-   if ( iz0tlnd2 .eq. 1 ) then
-      !designed for Noah LSM
-      !czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
-      !try for RUC LSM (varies a little bit less than the above form)
-      czil = 0.05_kind_phys + 29.0_kind_phys ** ( -0.40_kind_phys * ( (z_0 + 0.04_kind_phys) / 0.07_kind_phys ) )
+   if ( zt_opt .eq. 1 ) then
+      if (lsm /= lsm_ruc) then
+         !designed for Noah LSM (variable Czil, according to Chen & Zhang, 2009)
+         czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
+      else
+         !variable Czil for RUC LSM (varies less than the above form)
+         czil = 0.07_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
+      endif
    else
       czil = 0.095_kind_phys !0.075 !0.10
    endif
 
    zt = z_0*exp(-karman*czil*sqrt(restar))
-   zt = min( zt, 0.75_kind_phys*z_0)
-
-   zq = z_0*exp(-karman*czil*sqrt(restar))
-   zq = min( zq, 0.75_kind_phys*z_0)
-
-   ! stochastically perturb thermal and moisture roughness length.
-   ! currently set to half the amplitude:
-   if (spp_sfc==1) then
-      zt = zt + zt * p5 * rstoch
-      zt = max(zt, 0.0001_kind_phys)
-      zq = zt
-   endif
+   zt = min( zt, p75 * z_0)
+   zt = max( zt, 0.0001_kind_phys)
+   zq = zt
 
 endif
 
@@ -940,16 +946,16 @@ real(kind_phys), intent(out) :: zt,zq
 real(kind_phys)              :: rq
 real(kind_phys), parameter   :: e=2.71828183
 
-if (landsea-1.5 .gt. 0) then    !water
-   zt = z_0*exp(two - (2.48_kind_phys*(ren**0.25_kind_phys)))
-   zq = z_0*exp(two - (2.28*(ren**0.25_kind_phys)))
+if (landsea-1.5 .gt. zero) then    !water
+   zt = z_0*exp(two - (2.48_kind_phys*(ren**p25)))
+   zq = z_0*exp(two - (2.28_kind_phys*(ren**p25)))
 
    zq = min( zq, 5.5e-5_kind_phys)
    zq = max( zq, 2.0e-9_kind_phys)
    zt = min( zt, 5.5e-5_kind_phys)
    zt = max( zt, 2.0e-9_kind_phys) !same lower limit as ecmwf
 else                            !land
-   zq = z_0/(e**2)      !taken from garratt (1980,1992)
+   zq = z_0/7.4_kind_phys       !taken from garratt (1980,1992)
    zt = zq
 endif
 
@@ -979,25 +985,24 @@ end subroutine garratt_1992
 !!Zt was reduced too much for low-moderate positive heat fluxes.
 !!
 !!This should only be used over land!
-subroutine yang_2008(z_0,zt,zq,ustar,tstar,qst,ren,visc,spp_sfc,rstoch)
+subroutine yang_2008(z_0,zt,zq,ustar,tstar,qst,ren,visc)
 
 implicit none
-real(kind_phys), intent(in)  :: z_0,ustar,tstar,qst,ren,visc,rstoch
-integer, intent(in) :: spp_sfc
+real(kind_phys), intent(in)  :: z_0,ren,ustar,tstar,qst,visc
 real(kind_phys), intent(out) :: zt,zq
 !local variables:
-real(kind_phys) ::      ht,     &! roughness height at critical reynolds number
-                        tstar2, &! bounded t*, forced to be non-positive
-                        qstar2, &! bounded q*, forced to be non-positive
-                        z_02,   &! bounded z_0 for variable renc2 calc
-                        renc2    ! variable renc, function of z_0
-!local parameters:
-real(kind_phys), parameter :: renc=300., & !old constant renc
-                              beta=1.5,  & !important for diurnal variation
-                              m=170.,    & !slope for renc2 function
-                              b=691.       !y-intercept for renc2 function
+real(kind_phys) ::      ht,        &! roughness height at critical reynolds number
+                        tstar2,    &! bounded t*, forced to be non-positive
+                        qstar2,    &! bounded q*, forced to be non-positive
+                        z_02,      &! bounded z_0 for variable renc2 calc
+                        renc2       ! variable renc, function of z_0
+real(kind_phys), parameter   ::    &
+                        renc=300., & !old constant renc
+                        beta=1.5,  & !important for diurnal variation
+                        m=170.,    & !slope for renc2 function
+                        b=691.       !y-intercept for renc2 function
 
-z_02   = min(z_0 , p5)
+z_02   = min(z_0 ,p5)
 z_02   = max(z_02,0.04_kind_phys)
 renc2  = b + m*log(z_02)
 ht     = renc2*visc/max(ustar,0.01_kind_phys)
@@ -1006,18 +1011,10 @@ qstar2 = min(qst,   -0.01_kind_phys)
 
 zt     = ht * exp(-beta*sqrt(ustar)*abs(tstar2))
 !zq     = ht * exp(-beta*sqrt(ustar)*abs(qstar2))
-zq     = zt
 
-zt = min(zt, z_0 * p5)
-zq = min(zq, z_0 * p5)
-
-! stochastically perturb thermal and moisture roughness length.
-! currently set to half the amplitude:
-if (spp_sfc==1) then
-   zt = zt + zt * p5 * rstoch
-   zt = max(zt, 0.0001_kind_phys)
-   zq = zt
-endif
+zt = min( zt, p75 * z_0)
+zt = max( zt, 0.0001_kind_phys)
+zq = zt
 
 end subroutine yang_2008
 !--------------------------------------------------------------------
