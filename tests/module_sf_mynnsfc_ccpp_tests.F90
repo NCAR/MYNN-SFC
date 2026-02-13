@@ -10,7 +10,8 @@ module module_sf_mynnsfc_ccpp_tests
       ! for future use
     end subroutine init_mynn_sfc_flags_for_test_all_true
     !=================================================================================================================    
-    subroutine init_input_data_for_test()
+    subroutine init_input_data_for_test(saveoutput)
+      logical, intent(in) :: saveoutput
       integer :: iostat, line_num
       character(len=2000) :: input_line
       integer, parameter :: input_unit = 10
@@ -18,7 +19,7 @@ module module_sf_mynnsfc_ccpp_tests
       
       write(*,*) '--- opening data files ---'
       ! Open input file
-      open(unit=input_unit, file='./data/input_lnd.txt', status='old', action='read', iostat=iostat)
+      open(unit=input_unit, file='./data/ccpp_input_lnd.txt', status='old', action='read', iostat=iostat)
 
       if (iostat /= 0) then
           print *, 'Error opening input file'
@@ -26,13 +27,15 @@ module module_sf_mynnsfc_ccpp_tests
       end if
 
       ! Open output file
-      open(unit=output_unit, file='./data/ccpp_output_lnd.txt', status='replace', action='write', iostat=iostat)
-      write(output_unit,'(A5, A5, A10, A10, A10, A10, A10, A10, A10, A10, A10)')                &
-            'itimestep', 'iter', 'T2', 'Q2', 'TH2', 'U10', 'V10', 'HFX', 'LH', 'UST_lnd','PBLH'
-      if (iostat /= 0) then
-          print *, 'Error opening output file'
-          close(output_unit)
-          stop
+      if (saveoutput) then
+          open(unit=output_unit, file='./data/ccpp_output_lnd.txt', status='replace', action='write', iostat=iostat)
+          write(output_unit,'(A5, A5, A10, A10, A10, A10, A10, A10, A10, A10, A10)')                &
+                'itimestep', 'iter', 'T2', 'Q2', 'TH2', 'U10', 'V10', 'HFX', 'LH', 'UST_lnd','PBLH'
+          if (iostat /= 0) then
+              print *, 'Error opening output file'
+              close(output_unit)
+              stop
+          end if
       end if
 
     end subroutine init_input_data_for_test
@@ -183,15 +186,17 @@ module module_sf_mynnsfc_ccpp_tests
               
       ! Debug: print the line being read
       write(0,*) "Line length:", len_trim(line)
-      write(0,*) "U1D=",U1D, "flag_iter=",flag_iter, "V1D=", V1D," ZNT", ZNT_lnd, "WSPD=",WSPD
+      write(0,*) "U1D=",U1D !, "flag_iter=",flag_iter, "V1D=", V1D," ZNT", ZNT_lnd, "WSPD=",WSPD
         
     end subroutine process_line
 
     !=================================================================================================================
-    subroutine ccpp_test()
+    subroutine ccpp_test(saveoutput)
 
       !use module_sf_mynnsfc_driver, only : SFCLAY1D_mynn
       use module_sf_mynnsfc, only : SFCLAY1D_mynn
+
+      logical, intent(in) :: saveoutput
       integer :: iostat, line_num
       integer, parameter :: ids=1, ide=1, jds=1, jde=1, kds=1,kde=1
       integer, parameter :: ims=1, ime=1, jms=1, jme=1, kms=1,kme=1
@@ -241,7 +246,7 @@ module module_sf_mynnsfc_ccpp_tests
 
       write(*,*) '--- entering ccpp_test subroutine'    
       ! Initialize input data for tests
-      call init_input_data_for_test()
+      call init_input_data_for_test(saveoutput)
 
       ! Read header
       read(input_unit, '(A)', iostat=iostat) input_line
@@ -342,9 +347,11 @@ module module_sf_mynnsfc_ccpp_tests
          
          write(0,*) "T2=",T2
          write(0,*) "Read status:", read_stat
-         open(output_unit, file = './data/ccpp_output_lnd.txt')
-         write(output_unit,'(I5, I5, F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F15.2,F10.2)') itimestep, &
-              iter,T2,Q2,TH2,U10,V10,HFX,LH,UST_lnd,PBLH
+         if (saveoutput) then
+             open(output_unit, file = './data/ccpp_output_lnd.txt')
+             write(output_unit,'(I5, I5, F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F15.2,F10.2)') itimestep, &
+                  iter,T2,Q2,TH2,U10,V10,HFX,LH,UST_lnd,PBLH
+         end if
 
       end do
     end subroutine ccpp_test
