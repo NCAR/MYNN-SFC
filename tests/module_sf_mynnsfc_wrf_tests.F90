@@ -5,7 +5,7 @@ module module_sf_mynnsfc_wrf_tests
     !=================================================================================================================    
     implicit none
     logical :: cycling,restart,flag_iter
-    integer :: initflag, spp_pbl, isfflx,sf_mynn_sfcflux_water,sf_mynn_sfcflux_land,flag_lsm,lsm
+    integer :: initflag, spp_pbl, isfflx, flag_lsm,lsm
     real,dimension(1) :: pattern_spp_pbl
     contains
 
@@ -17,17 +17,16 @@ module module_sf_mynnsfc_wrf_tests
        restart=.false.
        pattern_spp_pbl=0.0
        isfflx =1
-       sf_mynn_sfcflux_water=1
-       sf_mynn_sfcflux_land=1
        flag_lsm=3
        lsm=3
        flag_iter = .true.
 
     end subroutine init_mynn_sfc_flags
     !=================================================================================================================    
-    subroutine init_input_data_for_test(case)
+    subroutine init_input_data_for_test(case,saveoutput)
       integer :: iostat, line_num
       character(len=*),intent(in) :: case
+      logical,intent(in) :: saveoutput
       character(len=2000) :: input_line
       integer, parameter :: input_unit = 10
       integer, parameter :: output_unit = 20
@@ -43,14 +42,16 @@ module module_sf_mynnsfc_wrf_tests
       end if
 
       ! Open output file
-      close(unit=output_unit)
-      open(unit=output_unit, file='./data/output_'//trim(case)//'.txt', status='replace', action='write', iostat=iostat)
-      write(output_unit,'(A5, A10, A10, A10, A10, A10, A10, A10, A10, A10)')                &
-            'itimestep',  'T2', 'Q2', 'TH2', 'U10', 'V10', 'HFX', 'LH', 'UST','PBLH'
-      if (iostat /= 0) then
-          print *, 'Error opening output file'
-          close(output_unit)
-          stop
+      if (saveoutput) then 
+          close(unit=output_unit)
+          open(unit=output_unit, file='./data/output_'//trim(case)//'.txt', status='replace', action='write', iostat=iostat)
+          write(output_unit,'(A5, A10, A10, A10, A10, A10, A10, A10, A10, A10)')                &
+                'itimestep',  'T2', 'Q2', 'TH2', 'U10', 'V10', 'HFX', 'LH', 'UST','PBLH'
+          if (iostat /= 0) then
+              print *, 'Error opening output file'
+              close(output_unit)
+              stop
+          end if    
       end if
 
     end subroutine init_input_data_for_test
@@ -158,9 +159,11 @@ module module_sf_mynnsfc_wrf_tests
     end subroutine process_line_wrf
     !=================================================================================================================
  
-    subroutine wrf_test (case)
+    subroutine wrf_test (case, sf_mynn_sfcflux_water, sf_mynn_sfcflux_land, saveoutput)
 
-      character(len=*), intent(in) ::case
+      character(len=*), intent(in) :: case
+      integer, intent(in) :: sf_mynn_sfcflux_water, sf_mynn_sfcflux_land
+      logical, intent(in) :: saveoutput
       integer :: iostat, line_num
       integer, parameter :: i=1, j=1
 
@@ -223,7 +226,7 @@ module module_sf_mynnsfc_wrf_tests
       call init_mynn_sfc_flags ()
 
       ! Initialize input data for tests
-      call init_input_data_for_test(case)
+      call init_input_data_for_test(case,saveoutput)
 
       ! Read header
       read(input_unit, '(A)', iostat=iostat) input_line
@@ -313,9 +316,11 @@ module module_sf_mynnsfc_wrf_tests
 
          write(0,*) "flag_iter",flag_iter,"T2=",t2,'chs=',ch,'ust=',UST,'hfx=',hfx_mod,'lh=',lh_mod,'xland=',xland, 'tsk', tsk
          write(0,*) "Read status:", read_stat
-         open(output_unit, file = './data/output_'//trim(case)//'.txt')
-         write(output_unit,'(I5, F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2)')  &
-              itimestep,t2_mod,q2_mod,th2_mod,u10_mod,v10_mod,hfx_mod,lh_mod,ust_mod,pblh
+         if (saveoutput) then
+             open(output_unit, file = './data/output_'//trim(case)//'.txt')
+             write(output_unit,'(I5, F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2,F10.2)')  &
+                  itimestep,t2_mod,q2_mod,th2_mod,u10_mod,v10_mod,hfx_mod,lh_mod,ust_mod,pblh
+          end if
 
       end do
     end subroutine wrf_test
