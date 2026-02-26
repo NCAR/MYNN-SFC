@@ -916,7 +916,8 @@ else                             !land
          czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
       else
          !variable Czil for RUC LSM (varies less than the above form)
-         czil = 0.07_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
+         !czil = 0.07_kind_phys  + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
+         czil = 0.085_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.17_kind_phys) / 0.07_kind_phys ) )
       endif
    else
       czil = 0.095_kind_phys !0.075 !0.10
