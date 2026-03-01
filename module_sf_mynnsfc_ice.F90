@@ -100,6 +100,8 @@ real(kind_phys), parameter :: p9            = 0.9
 integer, PARAMETER :: debug_code = 0  !0: no extra ouput
                                       !1: check input and derived variables
                                       !2: additional checks for strange behavior - heavier I/O
+integer, parameter :: isolate_db = 0  !isolate debugging (=1), output all point (=0)
+integer, parameter :: idb=31, jdb=1   !isolate debugging to these points
 
 CONTAINS
 
@@ -120,7 +122,7 @@ CONTAINS
        v_2         , dz8w_2      ,                             &
        !2d variables - transformed to single point
        pblh        , znt         , psfcpa      , mavail      , &  !intent(in)
-       tskin       , tsurf       , snowh       ,               &  !intent(in)
+       tskin       , tsurf       , snowh       , qgh         , &  !intent(in)
        chs         , chs2        , cqs2        , cqs         , &  
        ust         , ustm        , stress      ,               &  !intent(inout) 
        rmol        , zol         , mol         ,               &
@@ -186,7 +188,7 @@ real(kind_phys), intent(out)::  wstar
 ! ccpp error handling:
 character(len=*),intent(inout):: errmsg
 integer,         intent(inout):: errflg
-real(kind_phys), intent(inout):: lh,qsfc,qfx,hfx,rmol,             &
+real(kind_phys), intent(inout):: lh,qsfc,qfx,hfx,rmol,qgh,         &
                                  znt,cpm,chs,chs2,ch,              &
                                  flhc,flqc,                        &
                                  gz1oz0,wspd,                      &
@@ -195,7 +197,8 @@ real(kind_phys), intent(inout):: lh,qsfc,qfx,hfx,rmol,             &
                                  cqs,cqs2,                         &
                                  qstar,mol,zol
 real(kind_phys), intent(inout):: ust,cm,rb,stress,                 &
-                                 psix,psit,psix10,psit2,           &
+                                 psix,psit,psix10,psit2
+real(kind_phys), intent(inout), optional ::                        &
                                  ck,cka,cd,cda
 
 !--------------------------------------------
@@ -209,7 +212,7 @@ real(kind_phys) ::   &
                tc_1, &    !t at lowest 1/2 sigma (celsius)
                tv_1, &    !tv at lowest 1/2 sigma (k)
               rho_1, &    !density at lowest 1/2 sigma level
-               qvsh, &    !qv at lowest 1/2 sigma (spec humidity)
+               qvmr, &    !qv at lowest 1/2 sigma (mixing ratio)
               psih2, &    !m-o stability functions at z=2 m
              psim10, &    !m-o stability functions at z=10 m
              psih10, &    !m-o stability functions at z=10 m
@@ -256,7 +259,7 @@ if ( flag_iter ) then
    if (itimestep == 1) then
       !initialize surface specific humidity and mixing ratios
       tsk = tskin
-      if (lsm == lsm_ruc) then
+      if (lsm == lsm_ruc .and. qsfc > zero) then
          qsfcmr=qsfc/(one-qsfc)        !mixing ratio
       else
          !saturation vapor pressure wrt ice (svp1=.6112; 10*mb)
@@ -267,21 +270,28 @@ if ( flag_iter ) then
       endif ! lsm
       if(qsfc>one.or.qsfc<zero) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
    else
-      ! use what comes out of the nst, lsm, sice after check
-      if (qsfc>one.or.qsfc<0.) then
-         !print *,'bad qsfc',itimestep,iter,i,qsfc,tskin
-         !saturation vapor pressure wrt ice (svp1=.6112; 10*mb)
+      !for land/ice points qsfc can come from previous time step, may rather recompute...
+      ! currently using what comes out of the ruc lsm (or seaice module) after check
+      if (lsm == lsm_ruc .and. qsfc > zero) then
+         qsfcmr=qsfc/(one-qsfc)                !mixing ratio
+      else
          e1=svp1*exp(4648._kind_phys*(one/273.15_kind_phys - one/tskin) - &
            & 11.64_kind_phys*log(273.15_kind_phys/tskin) + 0.02265_kind_phys*(273.15_kind_phys - tskin))
          qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
          qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
       endif
-      qsfcmr=qsfc/(one-qsfc)
    endif
 
 endif ! flag_iter
 
-qvsh=qv_1/(one+qv_1)        !convert to spec hum (kg/kg)
+!qgh uses values at the lowest model level--not surface
+e1=svp1*exp(4648._kind_phys*(one/273.15_kind_phys - one/t_1) - &
+  & 11.64_kind_phys*log(273.15_kind_phys/t_1) + 0.02265_kind_phys*(273.15_kind_phys - t_1))
+!e1    = svp1*exp(svp2*(t_1-svpt0)/(t_1-svp3))
+pl    = p_1/1000._kind_phys
+qgh   = ep2*e1/(pl-e1)      !mixing ratio
+
+qvmr=qv_1/(one-qv_1)        !convert to mixing ratio
 thcon=(100000._kind_phys/psfcpa)**rovcp
 if (flag_iter) then
    ! define skin temperatures
@@ -301,8 +311,8 @@ th_1  = t_1*(100000._kind_phys/p_1)**rovcp    !(theta, kelvin)
 tc_1  = t_1-273.15_kind_phys                  !(Celsius)
 
 ! convert to virtual temperature
-thv_1 = th_1*(one+ep1*qvsh)                   !(kelvin)
-tv_1  = t_1*(one+ep1*qvsh)                    !(kelvin)
+thv_1 = th_1*(one+ep1*qv_1)                   !(kelvin)
+tv_1  = t_1*(one+ep1*qv_1)                    !(kelvin)
 
 rho_1 = p_1/(rd*tv_1)         !now using value calculated in sfc driver
 za    = p5*dz8w_1             !height of first half-sigma level
@@ -349,22 +359,22 @@ if ( flag_iter ) then
    rb=min(rb, two)
 
    if (debug_code >= 1) then
+      if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
       write(*,*)"over ice: itimestep=",itimestep," iter=",iter
       write(*,*)"=== important input to mynnsfclayer, i:", i
-      write(*,*)" pblh=",pblh," tsk=", tskin
-      write(*,*)" tsurf=", tsurf," qsfc=", qsfc," znt=", znt
+      write(*,*)" pblh=",pblh," tsk=", tskin," znt=", znt
+      write(*,*)" tsurf=", tsurf," qsfc=", qsfc," qsfcmr=", qsfcmr
       write(*,*)" ust=", ust," snowh=", snowh,"psfcpa=",PSFCPA
       write(*,*)" dz=",dz8w_1," qfx=",qfx," hfx=",hfx
       write(*,*)" psim_stab=",psim_stab(1)," psim_unstab=",psim_unstab(1)
       write(*,*)" psih_stab=",psih_stab(1)," psih_unstab=",psih_unstab(1)
-      write(*,*)"=== derived quantities in mynn sfc layer:"
       write(*,*)"thv_1=", thv_1," tv_1=",tv_1," thvsk=", thvsk
       write(*,*)"rho_1=", rho_1," govrth=",govrth
-      write(*,*)"qsfc=", qsfc," qsfcmr=", qsfcmr
       write(*,*)"=== after rb calc in mynn sfc layer:"
       write(*,*)"over ice, itimestep=",itimestep
       write(*,*)"wspd=", wspd," wstar=", wstar," vsgd=",vsgd
       write(*,*)"rb=", rb," dthvdz=",dthvdz
+      endif
    endif
 
    ! IF PREVIOUSLY UNSTABLE, DO NOT LET INTO REGIMES 1 AND 2 (STABLE)
@@ -431,6 +441,7 @@ if ( flag_iter ) then
          zol=min(zol,twenty)
 
          if (debug_code == 2) then
+            if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
             if (zntstoch < 1e-8 .or. zt < 1e-10) then
                write(0,*)"===(ice) capture bad input in mynn sfc layer, i=:",i
                write(0,*)"rb=", rb," znt=", zntstoch," zt=",zt
@@ -438,6 +449,7 @@ if ( flag_iter ) then
                  " tsurf=", tsurf," qsfc=", qsfc," znt=", znt,&
                  " ust=", ust," snowh=", snowh,"psfcpa=",psfcpa,  &
                  " dz=",dz8w_1," qfx=",qfx," hfx=",hfx," hpbl=",pblh
+            endif
             endif
          endif
 
@@ -496,6 +508,7 @@ if ( flag_iter ) then
          zol=min(zol,zero)
 
          if (debug_code == 2) then
+            if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
             if (zntstoch < 1e-8 .or. zt < 1e-10) then
                write(0,*)"===(ice) capture bad input in mynn sfc layer, i=:",i
                write(0,*)"rb=", rb," znt=", zntstoch," zt=",zt
@@ -503,6 +516,7 @@ if ( flag_iter ) then
                  " tsurf=", tsurf," qsfc=", qsfc," znt=", znt,&
                  " ust=", ust," snowh=", snowh,"psfcpa=",psfcpa,  &
                  " dz=",dz8w_1," qfx=",qfx," hfx=",hfx," hpbl=",pblh
+            endif
             endif
          endif
 
@@ -576,20 +590,22 @@ if ( flag_iter ) then
    !t_star = -hfx/(ust*cpm*rho_1)
    !t_star = mol
    !----------------------------------------------------
-   dqg=(qvsh-qsfc)*1000.   !(kg/kg -> g/kg)
+   dqg=(qv_1-qsfc)*1000.   !(kg/kg -> g/kg)
    qstar=karman*dqg/psiq/prt
 
 endif ! flag_iter
 
 if (debug_code >= 1) then
+   if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
    write(*,*)"==== at end of main loop, i=",i, "(ice)"
    write(*,*)"z/l:",zol," wspd:",wspd," tstar:",mol
    write(*,*)"psim:",psim," psih:",psih," w*:",wstar," dthv:",thv_1-thvsk
    write(*,*)"cpm:",cpm," rho_1:",rho_1," q*:",qstar," t*:",mol
    write(*,*)"u*:",ust," z0:",zntstoch," zt:",zt
-   write(*,*)"hfx:",hfx," mavail:",mavail," qvsh:",qvsh
+   write(*,*)"hfx:",hfx," mavail:",mavail," qv:",qv_1
    write(*,*)"============================================="
- endif
+   endif
+endif
 
 !----------------------------------------------------------
 !  COMPUTE SURFACE HEAT AND MOISTURE FLUXES
@@ -607,9 +623,16 @@ if ( flag_iter ) then
       ch   = zero
       chs2 = zero
       cqs2 = zero
-      ch   = zero
+      cqs  = zero
       cm   = zero
-
+      if(present(ck)  .and. present(cd) .and. &
+        &present(cka) .and. present(cda)) then
+           ck = zero
+           cd = zero
+           cka= zero
+           cda= zero
+        endif
+        
    else
 
       !------------------------------------------
@@ -623,8 +646,8 @@ if ( flag_iter ) then
          !----------------------------------
          ! compute surface moisture flux:
          !----------------------------------
-         qfx=flqc*(qsfcmr-qv_1)
-         !qfx=flqc*(qsfc-qv_1)
+         !qfx=flqc*(qsfcmr-qvmr)
+         qfx=flqc*(qsfc-qv_1)
          qfx=max(qfx,-0.02_kind_phys)      !allows small neg qfx
          lh=xlf*qfx
          ! bwg, 2020-06-17: mod next 2 lines for fractional
@@ -646,24 +669,31 @@ if ( flag_iter ) then
       chs=ust*karman/psit
 
       !these are used for 2-m diagnostics only
+      cqs =ust*karman/psiq
       cqs2=ust*karman/psiq2
       chs2=ust*karman/psit2
 
+      if(present(ck)  .and. present(cd) .and. &
+        &present(cka) .and. present(cda)) then
+         ck =(karman/psix10)*(karman/psiq10)
+         cd =(karman/psix10)*(karman/psix10)
+         cka=(karman/psix)*(karman/psiq)
+         cda=(karman/psix)*(karman/psix)
+      endif
+
       if (debug_code >= 1) then
+         if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
          write(*,*)"=== ice: after flux calculations:"
          write(*,*)"qfx=",qfx,"flqc=",flqc," lh=",lh
          write(*,*)"hfx=",hfx,"flhc=",flhc," wspd=",wspd
          write(*,*)" u*=",ust," psiq=",psiq," chs=",chs
+         endif
       endif
-
-      ! The exchange coefficient for cloud water is assumed to be the
-      ! same as that for heat. CH is multiplied by WSPD.
-      ch=flhc/( cpm*rho_1 )
 
       !-----------------------------------------
       !--- COMPUTE EXCHANGE COEFFICIENTS FOR FV3
       !-----------------------------------------
-      ch=(karman/psix)*(karman/psit)
+      ch=(karman/psix)*(karman/psit)  !=flhc/( cpm*rho_1 )
       cm=(karman/psix)*(karman/psix)
 
    endif !end isfflx option
@@ -731,6 +761,7 @@ endif ! end compute_diag
 ! DEBUG - SUSPICIOUS VALUES
 !-----------------------------------------------------
 if ( debug_code == 2) then
+   if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
    yesno = 0
    if (compute_flux) then
       if (hfx > 1200. .or. hfx < -700.)then
@@ -774,11 +805,11 @@ if ( debug_code == 2) then
               zol/za," dth:",th_1-thsk
       print*," z0:",zntstoch," zt:",zt," za:",za
       print*," mavail:",mavail," qsfc:",&
-              qsfc," qvsh:",qvsh
+              qsfc," qv:",qv_1
       print*,"psix=",psix," t_1:",t_1
       write(*,*)"============================================="
    endif
-
+   endif
 endif ! end debug option
  
 end subroutine mynnsfc_ice
