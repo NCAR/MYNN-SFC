@@ -110,7 +110,7 @@
         !2d variables
         psfcpa   , chs      , chs2     , cqs      , cqs2     , cpm       , &
         znt      , ust      , ustm     , pblh     , mavail   , zol       , &
-        mol      , rmol     , psim     , psih     , xland    ,             &
+        mol      , rmol     , psim     , psih     , xland    , qgh       , &
         hfx      , qfx      , lh       , tsk      , flhc     , flqc      , &
         qsfc     , u10      , v10      , th2      , t2       ,             &
         q2       , snowh    , gz1oz0   , wspd     , br       , dx        , &
@@ -222,7 +222,7 @@
  integer,intent(in),optional:: sf_mynn_sfcflux_land
  integer:: flag_lsm !local in mpas, which uses characters
  integer,parameter:: lsm_ruc=3
- character,intent(in),optional::flagc_lsm
+ character(len=*),intent(in),optional::flagc_lsm
  integer,intent(in),optional:: spp_pbl
  integer,intent(in),optional:: ivegsrc
  integer,intent(inout),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
@@ -298,6 +298,7 @@
     mol,    &
     rmol,   &
     qsfc,   &
+    qgh,    &
     znt,    &
     zol,    &
     ust,    &
@@ -325,9 +326,9 @@
  real(kind_phys) :: mavail_1,pblh_1,xland_1,tsk_1,psfcpa_1,           &
                      snowh_1,dx_1
  real(kind_phys) :: u_1,v_1,u_2,v_2,qv_1,p_1,t_1,rho_1,dz8w_1,        &
-                     dz8w_2,rstoch_1
+                     dz8w_2,rstoch_1,qvmr
  real(kind_phys) :: hfx_1,qfx_1,lh_1,mol_1,rmol_1,                    &
-                     qsfc_1,znt_1,zol_1,ust_1,cpm_1,chs2_1,           &
+                     qsfc_1,qgh_1,znt_1,zol_1,ust_1,cpm_1,chs2_1,     &
                      cqs_1,cqs2_1,chs_1,ch_1,flhc_1,flqc_1,gz1oz0_1,  &
                      wspd_1,br_1,psim_1,psih_1
  real(kind_phys) :: u10_1,v10_1,th2_1,t2_1,q2_1
@@ -344,11 +345,11 @@
  iter   = 1 !ccpp variable
 
  !convert character control flag to integer
- if (trim(flagc_lsm)=='sf_noaa') then
+ if (trim(flagc_lsm) .eq. 'sf_noaa') then
     flag_lsm = 1
- elseif(trim(flagc_lsm)=='sf_noahmp') then
+ elseif(trim(flagc_lsm) .eq. 'sf_noahmp') then
     flag_lsm = 2
- elseif(trim(flagc_lsm)=='sf_ruc') then
+ elseif(trim(flagc_lsm) .eq. 'sf_ruc') then
     flag_lsm = 3
  else
     flag_lsm = 4
@@ -360,7 +361,14 @@
  else
     loc_cycle = .false.
  endif
- 
+
+ if (debug_driver > 0) then
+    print*,"=======in beginning of mynn sfc driver=============="
+    print*,"flagc_lsm=",trim(flagc_lsm)," flag_lsm=",flag_lsm
+    print*,"cycling=",cycling," loc_cycle=",loc_cycle
+    print*,"itimestep=",itimestep," restart=",restart
+ endif
+    
  if (itimestep==1 .and. (.not.(restart) .or. .not.(loc_cycle))) then
     !cold starts
     do j = jts,jte
@@ -382,13 +390,26 @@
  endif
  
  do j = jts,jte
-    do i = its,ite      
+    do i = its,ite
+       qvmr     = qv3d(i,kts,j)   !mixing ratio
+       !convert 3D vars to single point - input only
+       dz8w_1   = dz8w(i,kts,j)
+       qv_1     = max(1e-8_kind_phys,qvmr/(one+qvmr)) !convert to specific humidity                                                                                                             
+       p_1      = p3d(i,kts,j)
+       t_1      = t3d(i,kts,j)
+       rho_1    = rho3d(i,kts,j)
+       !2nd model level winds - for diags with high-resolution grids:
+       dz8w_2   = dz8w(i,kts+1,j)
+       u_2      = u3d(i,kts+1,j)
+       v_2      = v3d(i,kts+1,j)
+       
        u_1      = u3d(i,kts,j)
        v_1      = v3d(i,kts,j)
        ust_1    = ust(i,j)
        stress_1 = ust_1**2
        mol_1    = mol(i,j)
-       qsfc_1   = qsfc(i,j)
+       qsfc_1   = qsfc(i,j)/(one+qvmr)  !convert to specific humidity
+       qgh_1    = qgh(i,j)/(one+qvmr)   !convert to specific humidity
        qstar_1  = qstar(i,j)
 
        !spp - input only
@@ -397,17 +418,6 @@
        else
           rstoch_1 = zero
        endif
-
-       !convert 3D vars to single point - input only
-       dz8w_1   = dz8w(i,kts,j)
-       qv_1     = qv3d(i,kts,j)
-       p_1      = p3d(i,kts,j)
-       t_1      = t3d(i,kts,j)
-       rho_1    = rho3d(i,kts,j)
-       !2nd model level winds - for diags with high-resolution grids:
-       dz8w_2   = dz8w(i,kts+1,j)
-       u_2      = u3d(i,kts+1,j)
-       v_2      = v3d(i,kts+1,j)
 
        !2d input only variables:
        mavail_1 = mavail(i,j)
@@ -420,7 +430,7 @@
 
        !inout arguments:
        hfx_1    = hfx(i,j)
-       qfx_1    = qfx(i,j)
+       qfx_1    = qfx(i,j)/(one+qvmr)  !specific humidity flux
        hflx_1   = hfx_1/(cp*rho_1) !ccpp
        qflx_1   = qfx_1/rho_1      !ccpp
        lh_1     = lh(i,j)
@@ -527,7 +537,7 @@
                  psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
                  tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
                  t2       = t2_1      , q2       = q2_1      , flhc     = flhc_1   , flqc      = flqc_1    , &
-                 snowh    = snowh_1   , qsfc     = qsfc_1    ,                                               &
+                 snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
                  lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
                  cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
                  wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
@@ -545,7 +555,8 @@
                     )
        endif
 
-       if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) then !5 cm threshold for binary snow/no-snow 
+       if ((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
+           (((xland_1-1.5) .ge. zero) .and. (snowh_1 .ge. snow_thresh))) then   !seaice 
           call mynnsfc_ice( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -557,12 +568,12 @@
                  !2d variables - transformed to single point
                  chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
                  pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
-                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 , &
+                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
                  mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
                  psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
                  tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
                  t2       = t2_1      , q2       = q2_1      , flhc     = flhc_1   , flqc      = flqc_1    , &
-                 snowh    = snowh_1   , qsfc     = qsfc_1    ,                                               &
+                 snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
                  lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
                  cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
                  wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
@@ -600,7 +611,7 @@
                  psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
                  tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
                  t2       = t2_1      , q2       = q2_1      , flhc     = flhc_1   , flqc      = flqc_1    , &
-                 snowh    = snowh_1   , qsfc     = qsfc_1    ,                                               &
+                 snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
                  lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
                  cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
                  wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
@@ -620,11 +631,12 @@
        
        !inout arguments:
        hfx(i,j)    = hfx_1
-       qfx(i,j)    = qfx_1
-       lh(i,j)     = lh_1
+       qfx(i,j)    = qfx_1/(one-qv_1)  !mixing ratio flux
+       lh(i,j)     = lh_1/(one-qv_1)   !mixing ratio flux
        mol(i,j)    = mol_1
        rmol(i,j)   = rmol_1
-       qsfc(i,j)   = qsfc_1
+       qsfc(i,j)   = qsfc_1/(one-qv_1) !mixing ratio
+       qgh(i,j)    = qgh_1/(one-qv_1)  !mixing ratio
        znt(i,j)    = znt_1
        zol(i,j)    = zol_1
        ust(i,j)    = ust_1
@@ -647,7 +659,7 @@
        v10(i,j)    = v10_1
        th2(i,j)    = th2_1
        t2(i,j)     = t2_1
-       q2(i,j)     = q2_1
+       q2(i,j)     = q2_1/(one-qv_1)  !mixing ratio
        wstar(i,j)  = wstar_1
        qstar(i,j)  = qstar_1
 
