@@ -351,7 +351,7 @@
 
  if (debug_driver > 0) then
     print*,"=======in beginning of mynn sfc driver=============="
-    print*,"flagc_lsm=",trim(flagc_lsm)," flag_lsm=",flag_lsm
+    print*,"flagc_lsm=DNE yet, flag_lsm=",flag_lsm
     print*,"cycling=",cycling," loc_cycle=",loc_cycle
     print*,"itimestep=",itimestep," restart=",restart
  endif

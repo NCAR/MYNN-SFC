@@ -181,7 +181,7 @@ module module_sf_mynnsfc_wrf_tests
             TSK,snowh,                           &
             chs,chs2,cqs2,                       &
             rmol,zol,mol,                        &
-            ustm,qsfc,                           &
+            ustm,qsfc,qgh,                       &
             u10,v10,th2,                         &
             t2,q2,flhc,flqc,                     &
             gz1oz0,WSPD,br,                      &
@@ -290,8 +290,8 @@ module module_sf_mynnsfc_wrf_tests
               z0pert=z0pert, ztpert=ztpert, redrag=redrag, sfc_z0_type=sfc_z0_type,                  &  !intent(in)
               !2d variables
               psfcpa=psfcpa , chs=CHS, chs2=CHS2, cqs=chs , cqs2=cqs2, cpm=CPM,                      &
-              znt=ZNT, ust=ust_mod, ustm=USTM, pblh=pblh, mavail=mavail, zol=ZOL ,                       &
-              mol=MOL, rmol=RMOL, psim=PSIM , psih=PSIH, xland=XLAND,                                &
+              znt=ZNT, ust=ust_mod, ustm=USTM, pblh=pblh, mavail=mavail, zol=ZOL,                    &
+              mol=MOL, rmol=RMOL, psim=PSIM , psih=PSIH, xland=XLAND, qgh=QGH,                       &
               hfx=HFX_mod, qfx=QFX_mod, lh=LH_mod, tsk=tsk, flhc=FLHC, flqc=FLQC,                    &
               qsfc=QSFC, u10=u10_mod, v10=v10_mod, th2 =th2_mod, t2=t2_mod ,                         &
               q2=q2_mod, snowh=snowh, gz1oz0=GZ1OZ0, wspd=WSPD, br=br, dx=DX,                        &
