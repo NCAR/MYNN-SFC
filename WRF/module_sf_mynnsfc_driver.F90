@@ -112,15 +112,15 @@
         znt      , ust      , ustm     , pblh     , mavail   , zol       , &
         mol      , rmol     , psim     , psih     , xland    , qgh       , &
         hfx      , qfx      , lh       , tsk      , flhc     , flqc      , &
-        qsfc     , u10      , v10      , th2      , t2       ,             &
+        qsfc     , u10      , v10      , th2      , t2       , lakemask  , &
         q2       , snowh    , gz1oz0   , wspd     , br       , dx        , &
         ch       , ck       , cka      , cd       , cda      ,             &
         stress   , hflx     , qflx     , cm       , fm       , fh        , &
-        fm10     , fh2      , tsurf    ,                                   &
+        fm10     , fh2      , tsurf    , water_depth         ,             &
         !configuration options
         spp_pbl  , pattern_spp_pbl     ,                                   &
         sf_mynn_sfcflux_water          ,                                   &
-        sf_mynn_sfcflux_land           ,                                   &
+        sf_mynn_sfcflux_land           , shalwater_z0        ,             &
         isfflx   , restart  , cycling  , initflag , flag_iter, flag_lsm  , &
         !model information
         itimestep,                                                         &
@@ -190,6 +190,8 @@
 !-- cda         momentum exchange coeff at the lowest model level
 !-- sf_mynn_sfcflux_land chooses the bulk-flux algorithm used over land (described above)
 !-- sf_mynn_sfcflux_water chooses the bulk-flux algorithm used over water (described above)
+!-- lakemask    0.0 for ocean, 1.0 for lakes
+!-- water_depth bathymetry(m)
 !-- ids         start index for i in domain
 !-- ide         end index for i in domain
 !-- jds         start index for j in domain
@@ -220,6 +222,7 @@
  integer,intent(in):: isfflx
  integer,intent(in),optional:: sf_mynn_sfcflux_water
  integer,intent(in),optional:: sf_mynn_sfcflux_land
+ integer,intent(in),optional:: shalwater_z0
  integer,intent(in),optional:: flag_lsm
  integer,intent(in),optional:: spp_pbl
  integer,intent(in),optional:: ivegsrc
@@ -249,7 +252,9 @@
     pattern_spp_pbl
 
  real(kind_phys),intent(in),dimension(ims:ime,jms:jme),optional:: &
-    tsurf
+    tsurf,   &
+    lakemask,&
+    water_depth
  
  real(kind_phys),intent(in),dimension(ims:ime,jms:jme):: &
     mavail, &
@@ -322,7 +327,7 @@
 
 !intermediate single-point variables will be *_1
  real(kind_phys) :: mavail_1,pblh_1,xland_1,tsk_1,psfcpa_1,           &
-                     snowh_1,dx_1
+                     snowh_1,dx_1,lakemask_1,wat_depth_1
  real(kind_phys) :: u_1,v_1,u_2,v_2,qv_1,p_1,t_1,rho_1,dz8w_1,        &
                      dz8w_2,rstoch_1,qvmr
  real(kind_phys) :: hfx_1,qfx_1,lh_1,mol_1,rmol_1,                    &
@@ -351,7 +356,7 @@
 
  if (debug_driver > 0) then
     print*,"=======in beginning of mynn sfc driver=============="
-    print*,"flagc_lsm=DNE yet, flag_lsm=",flag_lsm
+    print*,"flagc_lsm=",trim(flagc_lsm)," flag_lsm=",flag_lsm
     print*,"cycling=",cycling," loc_cycle=",loc_cycle
     print*,"itimestep=",itimestep," restart=",restart
  endif
@@ -414,7 +419,17 @@
        psfcpa_1 = psfcpa(i,j)
        snowh_1  = snowh(i,j)
        dx_1     = dx(i,j)
-
+       if(present(lakemask)) then
+          lakemask_1  = lakemask(i,j)
+       else
+          lakemask_1  = zero !default to ocean, since oceans >> lakes
+       endif
+       if(present(water_depth)) then
+          wat_depth_1  = water_depth(i,j)
+       else
+          wat_depth_1  = 1000._kind_phys !default to deep ocean, since open oceans >> lakes
+       endif
+       
        !inout arguments:
        hfx_1    = hfx(i,j)
        qfx_1    = qfx(i,j)/(one+qvmr)  !specific humidity flux
@@ -582,7 +597,8 @@
           call mynnsfc_water( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
-                 dx       = dx_1      , xland    = xland_1   , iter     = iter     ,                         &
+                 dx       = dx_1      , xland    = xland_1   , iter     = iter     , lakemask  = lakemask_1, &
+                 wat_depth=wat_depth_1,                                                                      &
                  !3d input - transformed to single point
                  u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
                  p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
@@ -593,7 +609,7 @@
                  !2d variables - transformed to single point
                  chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
                  pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
-                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 , &
+                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
                  mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
                  psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
                  tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
@@ -608,7 +624,7 @@
                  spp_sfc  = spp_pbl   , isfflx   = isfflx    ,sf_mynn_sfcflux_water= sf_mynn_sfcflux_water , &
                  flag_restart= restart, flag_cycle= cycling  , compute_flux        = compute_flux          , &
                  psi_opt  = psi_opt   ,                        compute_diag        = compute_diag          , &
-                 lsm_ruc  = lsm_ruc   , lsm      = flag_lsm  ,                                               &
+                 lsm_ruc  = lsm_ruc   , lsm      = flag_lsm  , shalwater_z0        = shalwater_z0          , &
                  !stability function tables
                  psim_stab= psim_stab ,psim_unstab=psim_unstab,psih_stab=psih_stab ,psih_unstab=psih_unstab, &
                  !error management

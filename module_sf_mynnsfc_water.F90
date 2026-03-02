@@ -58,14 +58,14 @@ MODULE module_sf_mynnsfc_water
       grav         , & !=9.81ish
       rd => r_d    , & !=287.
       rovcp => rcp , & !=Rd/cp
-      xlv          , & !2.5e6
-      xlf          , & !3.5e5
-      ep1 => p608  , & !Rv/Rd - 1
-      ep2 => ep_2  , & !Rd/Rv
-      ep3 => ep_3  , & !1-ep_2 = 0.378
-      rvovrd       , & != r_v/r_d != 1.608
-      karman       , & !-0.4
-      g_inv        , & !1/grav
+      xlv          , & !=2.5e6
+      xlf          , & !=3.5e5
+      ep1 => p608  , & !=Rv/Rd - 1
+      ep2 => ep_2  , & !=Rd/Rv
+      ep3 => ep_3  , & !=1-ep_2 = 0.378
+      rvovrd       , & !=r_v/r_d != 1.608
+      karman       , & !=0.4
+      g_inv        , & !=1/grav
       kind_phys        !model framework specified precision
 
 !-------------------------------------------------------------------
@@ -121,17 +121,17 @@ CONTAINS
   SUBROUTINE mynnsfc_water( &
        !model info
        flag_iter   , itimestep   , i           , j           , &
-       dx          , xland       ,                             &
+       dx          , xland       , lakemask    , wat_depth   , &
        !3d input - transformed to single point
-       U_1         , V_1         , T_1         , QV_1        , &
-       P_1         , dz8w_1      , rho_1       , U_2         , &
-       V_2         , dz8w_2      ,                             &
+       u_1         , v_1         , t_1         , qv_1        , &
+       p_1         , dz8w_1      , rho_1       , u_2         , &
+       v_2         , dz8w_2      ,                             &
        !GFS-related input
        sigmaf      , vegtype     , shdmax      , ivegsrc     , &  !intent(in)
        z0pert      , ztpert      , redrag      , sfc_z0_type , &  !intent(in)
        !2d variables - transformed to single point
        pblh        , znt         , psfcpa      , mavail      , &  !intent(in)
-       tskin       , tsurf       , snowh       , qgh         , &  !intent(in)
+       tskin       , tsurf       , snowh       ,               &  !intent(in)
        chs         , chs2        , cqs2        , cqs         , &  
        ust         , ustm        , stress      ,               &  !intent(inout) 
        rmol        , zol         , mol         ,               &
@@ -140,13 +140,13 @@ CONTAINS
        t2          , q2          , flhc        , flqc        , &
        lh          , gz1oz0      , wspd        , rb          , &
        cpm         , ch          , cm          , rstoch_1    , &
-       wstar       , qstar       ,                             &
+       wstar       , qstar       , qgh         ,               &
        ck          , cka         , cd          , cda         , &
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
        !namelist configuration options
-       spp_sfc     , sf_mynn_sfcflux_water     , ISFFLX      , &
+       spp_sfc     , sf_mynn_sfcflux_water     , isfflx      , &
        flag_restart,flag_cycle   , psi_opt     ,               &
-       compute_flux,compute_diag ,                             &
+       compute_flux,compute_diag , shalwater_z0,               &
        iter        , lsm         , lsm_ruc     ,               &
        !stability functions tables
        psim_stab   , psim_unstab , psih_stab   , psih_unstab , &
@@ -168,6 +168,7 @@ real(kind_phys), parameter  :: prt=1.       !prandlt number
 !-----------------------------
 integer, intent(in) :: isfflx
 integer, optional,  intent(in)  :: sf_mynn_sfcflux_water
+integer, optional,  intent(in)  :: shalwater_z0
 integer, intent(in) :: spp_sfc, psi_opt
 integer, intent(in) :: ivegsrc
 integer, intent(in) :: sfc_z0_type ! option for calculating surface roughness length over ocean
@@ -187,7 +188,7 @@ real(kind_phys),dimension(0:1000),intent(in) :: psim_stab,psim_unstab, &
 !input fields/variables
 !-----------------------------
 real(kind_phys), optional, intent(in) ::  sigmaf,shdmax,z0pert,ztpert
-real(kind_phys), intent(in) ::  mavail,pblh,xland,psfcpa,dx
+real(kind_phys), intent(in) ::  mavail,pblh,xland,psfcpa,dx,lakemask,wat_depth
 real(kind_phys), intent(in) ::  u_1,v_1,u_2,v_2,qv_1,p_1,t_1,dz8w_1,dz8w_2
 real(kind_phys), intent(in) ::  tskin,tsurf,snowh
 real(kind_phys), intent(in) ::  rstoch_1
@@ -275,7 +276,7 @@ if ( flag_iter ) then
    !saturation vapor pressure wrt water (bolton 1980)
    e1=svp1*exp(svp2*(tsk-svpt0)/(tsk-svp3))
    !the saturation vapor pressure for salty water is on average 2% lower
-   !if(lakemask(i).eq.0.) e1=e1*0.98_kind_phys
+   if (lakemask .lt. p5) e1=e1*0.98_kind_phys
    qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
    qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
    !if(qsfc>one.or.qsfc<0.) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
@@ -418,6 +419,11 @@ if (flag_iter) then
       else
          !default to coare 3.5
          call edson_etal_2013(znt,ust,wspd,visc,za)
+      endif
+
+      !shallow water z0 blending to the open-ocean z0 calculated above (from Pedro & Jimy)
+      if (shalwater_z0 .eq. 1) then
+         znt = depth_dependent_z0(wat_depth,znt,ust)
       endif
    endif !-end wave model check
 
@@ -985,6 +991,38 @@ end subroutine mynnsfc_water
  z_0 = min( z_0, 2.85e-3_kind_phys)  !davis et al. (2008)
 
  end subroutine edson_etal_2013
+!--------------------------------------------------------------------
+!>\ingroup mynn_sfc
+!> This is a simple tuning option to allow for a bathymetry-dependent
+!! impact on the roughness lengths in shallow water. This initial version
+!! was taken from Pedro & Jimy's scheme, but will be tested against an
+!! alternate form derived from WFIP3 data.
+ real(kind=kind_phys) function depth_dependent_z0(water_depth,z0,ust)
+
+ implicit none
+ real(kind=kind_phys),intent(in):: water_depth,z0,ust
+ real(kind=kind_phys):: depth_b, wt
+ real(kind=kind_phys):: effective_depth
+ 
+ if (water_depth .lt. 10.0) then
+    effective_depth = 10.0_kind_phys
+ elseif (water_depth .gt. 100.0) then
+    effective_depth = 100.0_kind_phys
+ else
+    effective_depth = water_depth
+ endif
+
+ depth_b = one / 30.0_kind_phys * log (1260.0_kind_phys / effective_depth)
+ depth_dependent_z0 = exp((2.7_kind_phys * ust - 1.8_kind_phys / depth_b) / (ust + 0.17_kind_phys / depth_b) )
+ depth_dependent_z0 = MIN(depth_dependent_z0, p1)
+
+ !blend to open ocean between 75 and 150 m
+ wt = min(one, max(zero, (water_depth-75._kind_phys)/75._kind_phys))
+ depth_dependent_z0 = (one-wt)*depth_dependent_z0 + wt*z0
+ 
+ return
+ end function depth_dependent_z0 
+
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !> This formulation for the thermal and moisture roughness lengths
