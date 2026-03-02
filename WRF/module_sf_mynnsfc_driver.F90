@@ -222,7 +222,7 @@
  integer,intent(in):: isfflx
  integer,intent(in),optional:: sf_mynn_sfcflux_water
  integer,intent(in),optional:: sf_mynn_sfcflux_land
- integer,intent(inout),optional:: shalwater_z0
+ integer,intent(in),optional:: shalwater_z0
  integer,intent(in),optional:: flag_lsm
  integer,intent(in),optional:: spp_pbl
  integer,intent(in),optional:: ivegsrc
@@ -353,7 +353,6 @@
  else
     loc_cycle = .false.
  endif
- if (.not.present(shalwater_z0))shalwater_z0=0
  
  if (debug_driver > 0) then
     print*,"=======in beginning of mynn sfc driver=============="
@@ -425,7 +424,7 @@
        else
           lakemask_1  = zero !default to ocean, since oceans >> lakes
        endif
-       if(present(water_depth)) then
+       if(present(water_depth) .and. present(shalwater_z0)) then
           wat_depth_1  = water_depth(i,j)
        else
           wat_depth_1  = 1000._kind_phys !default to deep ocean, since open oceans >> lakes

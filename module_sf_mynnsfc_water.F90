@@ -422,8 +422,10 @@ if (flag_iter) then
       endif
 
       !shallow water z0 blending to the open-ocean z0 calculated above (from Pedro & Jimy)
-      if (shalwater_z0 .eq. 1) then
-         znt = depth_dependent_z0(wat_depth,znt,ust)
+      if (present(shalwater_z0)) then
+         if (shalwater_z0 .eq. 1) then
+            znt = depth_dependent_z0(wat_depth,znt,ust)
+         endif
       endif
    endif !-end wave model check
 
