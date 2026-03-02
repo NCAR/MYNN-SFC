@@ -222,7 +222,7 @@
  integer,intent(in):: isfflx
  integer,intent(in),optional:: sf_mynn_sfcflux_water
  integer,intent(in),optional:: sf_mynn_sfcflux_land
- integer,intent(in),optional:: shalwater_z0
+ integer,intent(inout),optional:: shalwater_z0
  integer:: flag_lsm !local in mpas, which uses characters
  integer,parameter:: lsm_ruc=3
  character(len=*),intent(in),optional::flagc_lsm
@@ -366,6 +366,7 @@
  else
     loc_cycle = .false.
  endif
+  if (.not.present(shalwater_z0))shalwater_z0=0
 
  if (debug_driver > 0) then
     print*,"=======in beginning of mynn sfc driver=============="
