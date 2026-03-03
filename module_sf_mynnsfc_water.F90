@@ -73,17 +73,17 @@ IMPLICIT NONE
 !-------------------------------------------------------------------
 !Derive and/or define more constant:
 real(kind_phys), parameter :: wmin          = 0.1    ! Minimum wind speed
-real(kind_phys), parameter :: SVP1          = 0.6112
-real(kind_phys), parameter :: SVP2          = 17.67
-real(kind_phys), parameter :: SVP3          = 29.65
-real(kind_phys), parameter :: SVPT0         = 273.15
-real(kind_phys), parameter :: VCONVC        = 1.25
+real(kind_phys), parameter :: svp1          = 0.6112
+real(kind_phys), parameter :: svp2          = 17.67
+real(kind_phys), parameter :: svp3          = 29.65
+real(kind_phys), parameter :: svpt0         = 273.15
+real(kind_phys), parameter :: vconvc        = 1.25
 real(kind_phys), parameter :: sqrt3         = 1.7320508075688773
 real(kind_phys), parameter :: atan1         = 0.785398163397     !in radians
 real(kind_phys), parameter :: log01         = log(0.01)
 real(kind_phys), parameter :: log05         = log(0.05)
 real(kind_phys), parameter :: log07         = log(0.07)
-real(kind_phys), parameter :: SNOWZ0        = 0.011
+real(kind_phys), parameter :: snowz0        = 0.011
 !define constant parameters for precision-control sake:
 real(kind_phys), parameter :: zero          = 0.0
 real(kind_phys), parameter :: one           = 1.0

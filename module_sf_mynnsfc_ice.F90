@@ -384,9 +384,6 @@ if ( flag_iter ) then
 
 endif ! flag_iter
 
- 1006   format(A,F7.3,A,f9.4,A,f9.5,A,f9.4)
- 1007   format(A,F2.0,A,f6.2,A,f7.3,A,f7.2)
-
 !--------------------------------------------------------------------
 !--------------------------------------------------------------------
 !--- Begin iteration to calculate surface exchange coefficients
@@ -683,10 +680,10 @@ if ( flag_iter ) then
 
       if (debug_code >= 1) then
          if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-         write(*,*)"=== ice: after flux calculations:"
-         write(*,*)"qfx=",qfx,"flqc=",flqc," lh=",lh
-         write(*,*)"hfx=",hfx,"flhc=",flhc," wspd=",wspd
-         write(*,*)" u*=",ust," psiq=",psiq," chs=",chs
+            write(*,*)"=== ice: after flux calculations:"
+            write(*,*)"qfx=",qfx,"flqc=",flqc," lh=",lh
+            write(*,*)"hfx=",hfx,"flhc=",flhc," wspd=",wspd
+            write(*,*)" u*=",ust," psiq=",psiq," chs=",chs
          endif
       endif
 
@@ -748,11 +745,11 @@ IF (compute_diag) then
          (th_1<thsk .and. (th2>thsk .or. th2<th_1))) then
           th2=thsk + two*(th_1-thsk)/za
       endif
-      t2=th2*(psfcpa/100000.)**rovcp
+      t2=th2*(psfcpa/100000._kind_phys)**rovcp
 
       q2=qsfc+(qv_1-qsfc)*psiq2/psiq
       q2= max(q2, min(qsfc, qv_1))
-      q2= min(q2, 1.05*qv_1)
+      q2= min(q2, 1.05_kind_phys*qv_1)
    endif ! flag_iter
 
 endif ! end compute_diag
@@ -824,10 +821,10 @@ end subroutine mynnsfc_ice
 !! This should only be used over snow/ice!
     SUBROUTINE Andreas_2002(Z_0,bvisc,ustar,Zt,Zq,spp_sfc,rstoch)
 
-       IMPLICIT NONE
-       REAL(kind_phys), INTENT(IN)  :: Z_0, bvisc, ustar, rstoch
-       REAL(kind_phys), INTENT(OUT) :: Zt, Zq
-       REAL(kind_phys) :: Ren2, zntsno
+       implicit none
+       real(kind_phys), intent(in)  :: z_0, bvisc, ustar, rstoch
+       real(kind_phys), intent(out) :: zt, zq
+       real(kind_phys) :: ren2, zntsno
        INTEGER :: spp_sfc
        REAL(kind_phys), PARAMETER  ::                               &
                            bt0_s=1.25,  bt0_t=0.149,  bt0_r=0.317,  &
@@ -843,197 +840,197 @@ end subroutine mynnsfc_ice
        zntsno = 0.135*bvisc/ustar +                                 &
                (0.035*(ustar*ustar)*g_inv) *                        &
                (five*exp(-1.*(((ustar - 0.18)/p1)*((ustar - 0.18)/p1))) + one)
-       Ren2 = ustar*zntsno/bvisc
+       ren2 = ustar*zntsno/bvisc
 
        ! Make sure that Re is not outside of the range of validity
        ! for using their equations
-       IF (Ren2 .gt. 1000.) Ren2 = 1000.
+       if (ren2 .gt. 1000.) ren2 = 1000.
 
-       IF (Ren2 .le. 0.135) then
+       if (ren2 .le. 0.135) then
 
-          Zt = zntsno*EXP(bt0_s + bt1_s*LOG(Ren2) + bt2_s*LOG(Ren2)**2)
-          Zq = zntsno*EXP(bq0_s + bq1_s*LOG(Ren2) + bq2_s*LOG(Ren2)**2)
+          zt = zntsno*exp(bt0_s + bt1_s*log(ren2) + bt2_s*log(ren2)**2)
+          zq = zntsno*exp(bq0_s + bq1_s*log(ren2) + bq2_s*log(ren2)**2)
 
-       ELSE IF (Ren2 .gt. 0.135 .AND. Ren2 .lt. 2.5) then
+       else if (ren2 .gt. 0.135 .and. ren2 .lt. 2.5) then
 
-          Zt = zntsno*EXP(bt0_t + bt1_t*LOG(Ren2) + bt2_t*LOG(Ren2)**2)
-          Zq = zntsno*EXP(bq0_t + bq1_t*LOG(Ren2) + bq2_t*LOG(Ren2)**2)
+          zt = zntsno*exp(bt0_t + bt1_t*log(ren2) + bt2_t*log(ren2)**2)
+          zq = zntsno*exp(bq0_t + bq1_t*log(ren2) + bq2_t*log(ren2)**2)
 
-       ELSE
+       else
 
-          Zt = zntsno*EXP(bt0_r + bt1_r*LOG(Ren2) + bt2_r*LOG(Ren2)**2)
-          Zq = zntsno*EXP(bq0_r + bq1_r*LOG(Ren2) + bq2_r*LOG(Ren2)**2)
+          zt = zntsno*exp(bt0_r + bt1_r*log(ren2) + bt2_r*log(ren2)**2)
+          zq = zntsno*exp(bq0_r + bq1_r*log(ren2) + bq2_r*log(ren2)**2)
 
-       ENDIF
+       endif
 
        ! stochastically perturb thermal and moisture roughness length.
        ! currently set to half the amplitude:
        if (spp_sfc==1) then
-          Zt = Zt + Zt * p5 * rstoch
-          Zt = MAX(Zt, 0.0001_kind_phys)
-          Zq = Zt
+          zt = zt + zt * p5 * rstoch
+          zt = max(zt, 0.0001_kind_phys)
+          zq = zt
        endif
        
-    END SUBROUTINE Andreas_2002
+    end subroutine andreas_2002
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !> This subroutine returns the stability functions based off
 !! of Hogstrom (1996).
-    SUBROUTINE PSI_Hogstrom_1996(psi_m, psi_h, zL, Zt, Z_0, Za)
+    subroutine psi_hogstrom_1996(psi_m, psi_h, zl, zt, z_0, za)
 
-       IMPLICIT NONE
-       REAL(kind_phys), INTENT(IN)  :: zL, Zt, Z_0, Za
-       REAL(kind_phys), INTENT(OUT) :: psi_m, psi_h
-       REAL(kind_phys)  :: x, x0, y, y0, zmL, zhL
+       implicit none
+       real(kind_phys), intent(in)  :: zl, zt, z_0, za
+       real(kind_phys), intent(out) :: psi_m, psi_h
+       real(kind_phys)  :: x, x0, y, y0, zml, zhl
 
-       zmL = Z_0*zL/Za
-       zhL = Zt*zL/Za
+       zml = z_0*zl/za
+       zhl = zt*zl/za
 
-       IF (zL .gt. 0.) THEN  !STABLE (not well tested - seem large)
+       if (zl .gt. 0.) then  !stable (not well tested - seem large)
 
-          psi_m = -5.3_kind_phys*(zL - zmL)
-          psi_h = -8.0_kind_phys*(zL - zhL)
+          psi_m = -5.3_kind_phys*(zl - zml)
+          psi_h = -8.0_kind_phys*(zl - zhl)
 
-       ELSE                 !UNSTABLE
+       else                 !unstable
 
-          x = (one-19.0_kind_phys*zL)**0.25_kind_phys
-          x0= (one-19.0_kind_phys*zmL)**0.25_kind_phys
-          y = (one-11.6_kind_phys*zL)**0.5_kind_phys
-          y0= (one-11.6_kind_phys*zhL)**0.5_kind_phys
+          x = (one-19.0_kind_phys*zl)**0.25_kind_phys
+          x0= (one-19.0_kind_phys*zml)**0.25_kind_phys
+          y = (one-11.6_kind_phys*zl)**0.5_kind_phys
+          y0= (one-11.6_kind_phys*zhl)**0.5_kind_phys
 
-          psi_m = two*LOG((one+x)/(one+x0)) +       &
-                    &LOG((one+x**2)/(one+x0**2)) -  &
-                    &two*ATAN(x) + two*ATAN(x0)
-          psi_h = two*LOG((one+y)/(one+y0))
+          psi_m = two*log((one+x)/(one+x0)) +       &
+                    &log((one+x**2)/(one+x0**2)) -  &
+                    &two*atan(x) + two*atan(x0)
+          psi_h = two*log((one+y)/(one+y0))
 
-       ENDIF
+       endif
 
-    END SUBROUTINE PSI_Hogstrom_1996
+    end subroutine psi_hogstrom_1996
 !--------------------------------------------------------------------
 !> \ingroup mynn_sfc
 !> This subroutine returns the stability functions based off
 !! of Hogstrom (1996), but with different constants compatible
 !! with Dyer and Hicks (1970/74?). This formulation is used for
 !! testing/development by Nakanishi (personal communication).
-    SUBROUTINE PSI_DyerHicks(psi_m, psi_h, zL, Zt, Z_0, Za)
+    subroutine psi_dyerhicks(psi_m, psi_h, zl, zt, z_0, za)
 
-       IMPLICIT NONE
-       REAL(kind_phys), INTENT(IN)  :: zL, Zt, Z_0, Za
-       REAL(kind_phys), INTENT(OUT) :: psi_m, psi_h
-       REAL(kind_phys)  :: x, x0, y, y0, zmL, zhL
+       implicit none
+       real(kind_phys), intent(in)  :: zl, zt, z_0, za
+       real(kind_phys), intent(out) :: psi_m, psi_h
+       real(kind_phys)  :: x, x0, y, y0, zml, zhl
 
-       zmL = Z_0*zL/Za  !Zo/L
-       zhL = Zt*zL/Za   !Zt/L
+       zml = z_0*zl/za  !zo/l
+       zhl = zt*zl/za   !zt/l
 
-       IF (zL .gt. 0.) THEN  !STABLE
+       if (zl .gt. 0.) then  !stable
 
-          psi_m = -5.0_kind_phys*(zL - zmL)
-          psi_h = -5.0_kind_phys*(zL - zhL)
+          psi_m = -5.0_kind_phys*(zl - zml)
+          psi_h = -5.0_kind_phys*(zl - zhl)
 
-       ELSE                 !UNSTABLE
+       else                 !unstable
 
-          x = (one-16._kind_phys*zL)**0.25_kind_phys
-          x0= (one-16._kind_phys*zmL)**0.25_kind_phys
+          x = (one-16._kind_phys*zl)**0.25_kind_phys
+          x0= (one-16._kind_phys*zml)**0.25_kind_phys
 
-          y = (one-16._kind_phys*zL)**0.5_kind_phys
-          y0= (one-16._kind_phys*zhL)**0.5_kind_phys
+          y = (one-16._kind_phys*zl)**0.5_kind_phys
+          y0= (one-16._kind_phys*zhl)**0.5_kind_phys
 
-          psi_m = two*LOG((one+x)/(one+x0)) +         &
-                    &LOG((one+x**2)/(one+x0**2)) - &
-                    &two*ATAN(x) + two*ATAN(x0)
-          psi_h = two*LOG((one+y)/(one+y0))
+          psi_m = two*log((one+x)/(one+x0)) +         &
+                    &log((one+x**2)/(one+x0**2)) - &
+                    &two*atan(x) + two*atan(x0)
+          psi_h = two*log((one+y)/(one+y0))
 
-       ENDIF
+       endif
 
-    END SUBROUTINE PSI_DyerHicks
+    end subroutine psi_dyerhicks
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !> This subroutine returns the stability functions based off
 !! of Beljaar and Holtslag 1991, which is an extension of Holtslag
 !! and Debruin 1989.
-    SUBROUTINE PSI_Beljaars_Holtslag_1991(psi_m, psi_h, zL)
+    subroutine psi_beljaars_holtslag_1991(psi_m, psi_h, zl)
 
-       IMPLICIT NONE
-       REAL(kind_phys), INTENT(IN)  :: zL
-       REAL(kind_phys), INTENT(OUT) :: psi_m, psi_h
-       REAL(kind_phys), PARAMETER   :: a=1., b=0.666, c=5., d=0.35
+       implicit none
+       real(kind_phys), intent(in)  :: zl
+       real(kind_phys), intent(out) :: psi_m, psi_h
+       real(kind_phys), parameter   :: a=1., b=0.666, c=5., d=0.35
 
-       IF (zL .lt. 0.) THEN  !UNSTABLE
+       if (zl .lt. 0.) then  !unstable
 
-          WRITE(*,*)"WARNING: Universal stability functions from"
-          WRITE(*,*)"        Beljaars and Holtslag (1991) should only"
-          WRITE(*,*)"        be used in the stable regime!"
+          write(*,*)"warning: universal stability functions from"
+          write(*,*)"        beljaars and holtslag (1991) should only"
+          write(*,*)"        be used in the stable regime!"
           psi_m = zero
           psi_h = zero
 
-       ELSE                 !STABLE
+       else                 !stable
 
-          psi_m = -(a*zL + b*(zL -(c/d))*exp(-d*zL) + (b*c/d))
-          psi_h = -((one + .666_kind_phys*a*zL)**1.5_kind_phys + &
-                  b*(zL - (c/d))*exp(-d*zL) + (b*c/d) - one)
+          psi_m = -(a*zl + b*(zl -(c/d))*exp(-d*zl) + (b*c/d))
+          psi_h = -((one + .666_kind_phys*a*zl)**1.5_kind_phys + &
+                  b*(zl - (c/d))*exp(-d*zl) + (b*c/d) - one)
 
-       ENDIF
+       endif
 
-    END SUBROUTINE PSI_Beljaars_Holtslag_1991
+    end subroutine psi_beljaars_holtslag_1991
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !> This subroutine returns the stability functions come from
 !! Zilitinkevich and Esau (2007, BM), which are formulatioed from the
 !! "generalized similarity theory" and tuned to the LES DATABASE64
 !! to determine their dependence on z/L.
-    SUBROUTINE PSI_Zilitinkevich_Esau_2007(psi_m, psi_h, zL)
+    subroutine psi_zilitinkevich_esau_2007(psi_m, psi_h, zl)
 
-       IMPLICIT NONE
-       REAL(kind_phys), INTENT(IN)  :: zL
-       REAL(kind_phys), INTENT(OUT) :: psi_m, psi_h
-       REAL(kind_phys), PARAMETER   :: Cm=3.0, Ct=2.5
+       implicit none
+       real(kind_phys), intent(in)  :: zl
+       real(kind_phys), intent(out) :: psi_m, psi_h
+       real(kind_phys), parameter   :: cm=3.0, ct=2.5
 
-       IF (zL .lt. 0.) THEN  !UNSTABLE
+       if (zl .lt. 0.) then  !unstable
 
-          WRITE(*,*)"WARNING: Universal stability function from"
-          WRITE(*,*)"        Zilitinkevich and Esau (2007) should only"
-          WRITE(*,*)"        be used in the stable regime!"
+          write(*,*)"warning: universal stability function from"
+          write(*,*)"        zilitinkevich and esau (2007) should only"
+          write(*,*)"        be used in the stable regime!"
           psi_m = zero
           psi_h = zero
 
-       ELSE                 !STABLE
+       else                 !stable
 
-          psi_m = -Cm*(zL**(5._kind_phys/6._kind_phys))
-          psi_h = -Ct*(zL**(4._kind_phys/5._kind_phys))
+          psi_m = -cm*(zl**(5._kind_phys/6._kind_phys))
+          psi_h = -ct*(zl**(4._kind_phys/5._kind_phys))
 
-       ENDIF
+       endif
 
-    END SUBROUTINE PSI_Zilitinkevich_Esau_2007
+    end subroutine psi_zilitinkevich_esau_2007
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !> This subroutine returns the flux-profile relationships
 !! of Businger el al. 1971.
-    SUBROUTINE PSI_Businger_1971(psi_m, psi_h, zL)
+    subroutine psi_businger_1971(psi_m, psi_h, zl)
 
-       IMPLICIT NONE
-       REAL(kind_phys), INTENT(IN)  :: zL
-       REAL(kind_phys), INTENT(OUT) :: psi_m, psi_h
-       REAL(kind_phys)  :: x, y
-       REAL(kind_phys), PARAMETER  ::  Pi180 = 3.14159265/180.
+       implicit none
+       real(kind_phys), intent(in)  :: zl
+       real(kind_phys), intent(out) :: psi_m, psi_h
+       real(kind_phys)  :: x, y
+       real(kind_phys), parameter  ::  pi180 = 3.14159265/180.
 
-       IF (zL .lt. 0.) THEN  !UNSTABLE
+       if (zl .lt. 0.) then  !unstable
 
-          x = (one - 15.0_kind_phys*zL)**0.25_kind_phys
-          y = (one - 9.0_kind_phys*zL)**0.5_kind_phys
+          x = (one - 15.0_kind_phys*zl)**0.25_kind_phys
+          y = (one - 9.0_kind_phys*zl)**0.5_kind_phys
 
-          psi_m = LOG(((one+x)/two)**2) + &
-                 &LOG((one+x**2)/two) - &
-                 &two*ATAN(x) + Pi180*90.
-          psi_h = two*LOG((one+y)/two)
+          psi_m = log(((one+x)/two)**2) + &
+                 &log((one+x**2)/two) - &
+                 &two*atan(x) + pi180*90.
+          psi_h = two*log((one+y)/two)
 
-       ELSE                 !STABLE
+       else                 !stable
 
-          psi_m = -4.7_kind_phys*zL
-          psi_h = -(4.7_kind_phys/0.74_kind_phys)*zL
+          psi_m = -4.7_kind_phys*zl
+          psi_h = -(4.7_kind_phys/0.74_kind_phys)*zl
 
-       ENDIF
+       endif
 
-    END SUBROUTINE PSI_Businger_1971
+    end subroutine psi_businger_1971
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !> This subroutine returns flux-profile relatioships based off
@@ -1042,37 +1039,37 @@ end subroutine mynnsfc_ice
 !!from Nakanishi (2001) to get this new relationship. These functions
 !!are more agressive (larger magnitude) than most formulations. They
 !!showed improvement over water, but untested over land.
-    SUBROUTINE PSI_Suselj_Sood_2010(psi_m, psi_h, zL)
+    subroutine psi_suselj_sood_2010(psi_m, psi_h, zl)
 
-       IMPLICIT NONE
-       REAL(kind_phys), INTENT(IN)  :: zL
-       REAL(kind_phys), INTENT(OUT) :: psi_m, psi_h
-       REAL(kind_phys), PARAMETER   :: Rfc=0.19, Ric=0.183, PHIT=0.8
+       implicit none
+       real(kind_phys), intent(in)  :: zl
+       real(kind_phys), intent(out) :: psi_m, psi_h
+       real(kind_phys), parameter   :: rfc=0.19, ric=0.183, phit=0.8
 
-       IF (zL .gt. 0.) THEN  !STABLE
+       if (zl .gt. 0.) then  !stable
 
-          psi_m = -(zL/Rfc + 1.1223_kind_phys*EXP(one-1.6666_kind_phys/zL))
+          psi_m = -(zl/rfc + 1.1223_kind_phys*exp(one-1.6666_kind_phys/zl))
           !psi_h = -zL*Ric/((Rfc**2.)*PHIT) + 8.209*(zL**1.1091)
           !THEIR EQ FOR PSI_H CRASHES THE MODEL AND DOES NOT MATCH
           !THEIR FIG 1. THIS EQ (BELOW) MATCHES THEIR FIG 1 BETTER:
-          psi_h = -(zL*Ric/((Rfc**2)*5._kind_phys) + 7.09_kind_phys*(zL**1.1091_kind_phys))
+          psi_h = -(zl*ric/((rfc**2)*5._kind_phys) + 7.09_kind_phys*(zl**1.1091_kind_phys))
 
-       ELSE                 !UNSTABLE
+       else                 !unstable
 
-          psi_m = 0.9904_kind_phys*LOG(one - 14.264_kind_phys*zL)
-          psi_h = 1.0103_kind_phys*LOG(one - 16.3066_kind_phys*zL)
+          psi_m = 0.9904_kind_phys*log(one - 14.264_kind_phys*zl)
+          psi_h = 1.0103_kind_phys*log(one - 16.3066_kind_phys*zl)
 
-       ENDIF
+       endif
 
-    END SUBROUTINE PSI_Suselj_Sood_2010
+    end subroutine psi_suselj_sood_2010
 !--------------------------------------------------------------------
 !>\ingroup mynn_sfc
 !! This subroutine returns the stability functions based off
 !! of Cheng and Brutseart (2005, BLM), for use in stable conditions only.
 !! The returned values are the combination of psi((za+zo)/L) - psi(z0/L)
-    SUBROUTINE PSI_CB2005(psim1,psih1,zL,z0L)
+    subroutine psi_cb2005(psim1,psih1,zl,z0l)
 
-       IMPLICIT NONE
+       implicit none
        REAL(kind_phys), INTENT(IN)  :: zL,z0L
        REAL(kind_phys), INTENT(OUT) :: psim1,psih1
 
