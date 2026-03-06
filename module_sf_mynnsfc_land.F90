@@ -399,9 +399,6 @@ if (flag_iter) then
 
 endif ! flag_iter
 
- 1006   format(A,F7.3,A,f9.4,A,f9.5,A,f9.4)
- 1007   format(A,F2.0,A,f6.2,A,f7.3,A,f7.2)
-
 !--------------------------------------------------------------------
 !--------------------------------------------------------------------
 !--- begin iteration to solve for surface exchange coeficients
