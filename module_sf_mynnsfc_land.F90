@@ -93,6 +93,7 @@ real(kind_phys), parameter :: p2            = 0.2
 real(kind_phys), parameter :: p25           = 0.25
 real(kind_phys), parameter :: p333          = 1./3.
 real(kind_phys), parameter :: p5            = 0.5
+real(kind_phys), parameter :: p6            = 0.6
 real(kind_phys), parameter :: p666          = 2./3.
 real(kind_phys), parameter :: p75           = 0.75
 real(kind_phys), parameter :: p9            = 0.9
@@ -932,14 +933,15 @@ else                             !land
          czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
       else
          !variable Czil for RUC LSM (varies less than the above form)
-         czil = 0.07_kind_phys  + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
-         !czil = 0.085_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.17_kind_phys) / 0.07_kind_phys ) )
+         !czil = 0.07_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
+         czil = 0.07_kind_phys + ten ** ( -0.60_kind_phys * ( (z_0 + 0.08_kind_phys) / 0.06_kind_phys ) )
       endif
    else
       czil = 0.095_kind_phys !0.075 !0.10
    endif
 
-   zt = z_0*exp(-karman*czil*sqrt(restar))
+   !zt = z_0*exp(-karman*czil*sqrt(restar))
+   zt = min(p6,z_0)*exp(-karman*czil*sqrt(restar))
    zt = min( zt, p75 * z_0)
    zt = max( zt, 0.0001_kind_phys)
    zq = zt
