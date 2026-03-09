@@ -241,7 +241,7 @@ integer ::  n,k,l,yesno
 
 real(kind_phys) :: pl,e1,tabs
 real(kind_phys) :: dthvdz,dthvm,vconv,zol2,zol10,zolza,zolz0,zolzt
-real(kind_phys) :: dtg,dtthx,psiq10,psit10
+real(kind_phys) :: dtg,dtthx,psiq10
 real(kind_phys) :: fluxc,vsgd
 real(kind_phys) :: restar,visc,dqg,oldust,oldtst
 !-------------------------------------------------------------------
@@ -560,8 +560,9 @@ if ( flag_iter ) then
     psix10=max(gz10oz0-psim10, one)
     psit  =max(gz1ozt-psih   , one)
     psit2 =max(gz2ozt-psih2  , one)
-    psiq  =max(log((za+zq)/zq)-psih,  one)
-    psiq2 =max(log((two+zq)/zq)-psih2,one)
+    psiq  =max(log((za+zq)/zq)-psih,   one)
+    psiq2 =max(log((two+zq)/zq)-psih2, one)
+    psiq10=max(log((ten+zq)/zq)-psih10,one)
 
    !------------------------------------------------------------
    !-----COMPUTE THE FRICTIONAL VELOCITY:
