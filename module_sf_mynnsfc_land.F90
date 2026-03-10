@@ -93,6 +93,7 @@ real(kind_phys), parameter :: p2            = 0.2
 real(kind_phys), parameter :: p25           = 0.25
 real(kind_phys), parameter :: p333          = 1./3.
 real(kind_phys), parameter :: p5            = 0.5
+real(kind_phys), parameter :: p6            = 0.6
 real(kind_phys), parameter :: p666          = 2./3.
 real(kind_phys), parameter :: p75           = 0.75
 real(kind_phys), parameter :: p9            = 0.9
@@ -435,7 +436,7 @@ if (flag_iter) then
    if ( present(sf_mynn_sfcflux_land) ) then
       if ( sf_mynn_sfcflux_land .le. 1 ) then
          call zilitinkevich_1995(zntstoch,zt,zq,restar,&
-              ust,karman,one,sf_mynn_sfcflux_land,lsm,lsm_ruc)
+              ust,karman,sf_mynn_sfcflux_land,lsm,lsm_ruc)
       elseif ( sf_mynn_sfcflux_land .eq. 2 ) then
          call yang_2008(zntstoch,zt,zq,ust,mol,qstar,restar,visc)
       elseif ( sf_mynn_sfcflux_land .eq. 3 ) then
@@ -449,7 +450,7 @@ if (flag_iter) then
    else
       !default to zilitinkevich
       call zilitinkevich_1995(zntstoch,zt,zq,restar,&
-                   ust,karman,one,0,lsm,lsm_ruc)
+                   ust,karman,0,lsm,lsm_ruc)
    endif
 
    ! stochastically perturb thermal and moisture roughness length.
@@ -894,57 +895,38 @@ end subroutine mynnsfc_land
 !!            LSM only. An alternate version was added to better
 !!            work with the RUC LSM.
 subroutine zilitinkevich_1995(z_0,zt,zq,restar,ustar,karman,&
-        &                     landsea,zt_opt,lsm,lsm_ruc)
+        &                     zt_opt,lsm,lsm_ruc)
 
 implicit none
-real(kind_phys), intent(in)  :: z_0,restar,ustar,karman,landsea
+real(kind_phys), intent(in)  :: z_0,restar,ustar,karman
 integer,optional,intent(in)  :: zt_opt
 real(kind_phys), intent(out) :: zt,zq
 real(kind_phys) :: czil       !=0.100 in chen et al. (1997)
                               !=0.075 in zilitinkevich (1995)
                               !=0.500 in lemone et al. (2008)
+real(kind_phys) :: znt
 integer,         intent(in)  :: lsm,lsm_ruc
 
-if (landsea-1.5 .gt. zero) then    !water
-   !this is based on Zilitinkevich, Grachev, and Fairall (2001),
-   !their equations 15 and 16:
-   if (restar .lt. 0.1) then
-      zt = z_0*exp(karman*two)
-      zt = min( zt, 6.0e-5_kind_phys)
-      zt = max( zt, 2.0e-9_kind_phys)
-      zq = z_0*exp(karman*three)
-      zq = min( zq, 6.0e-5_kind_phys)
-      zq = max( zq, 2.0e-9_kind_phys)
+if ( zt_opt .eq. 1 ) then
+   if (lsm /= lsm_ruc) then
+      !designed for Noah LSM (variable Czil, according to Chen & Zhang, 2009)
+      czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
+      znt  = z_0
    else
-      zt = z_0*exp(-karman*(four*sqrt(restar)-3.2_kind_phys))
-      zt = min( zt, 6.0e-5_kind_phys)
-      zt = max( zt, 2.0e-9_kind_phys)
-      zq = z_0*exp(-karman*(four*sqrt(restar)-4.2_kind_phys))
-      zq = min( zt, 6.0e-5_kind_phys)
-      zq = max( zt, 2.0e-9_kind_phys)
+      !variable Czil for RUC LSM (varies less than the above form)
+      !czil = 0.07_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
+      czil = 0.08_kind_phys + ten ** ( -0.60_kind_phys * ( (z_0 + 0.10_kind_phys) / 0.06_kind_phys ) )
+      znt  = min(p6, z_0)
    endif
-
-else                             !land
-
-   if ( zt_opt .eq. 1 ) then
-      if (lsm /= lsm_ruc) then
-         !designed for Noah LSM (variable Czil, according to Chen & Zhang, 2009)
-         czil = ten ** ( -0.40_kind_phys * ( z_0 / 0.07_kind_phys ) )
-      else
-         !variable Czil for RUC LSM (varies less than the above form)
-         czil = 0.07_kind_phys  + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
-         !czil = 0.085_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.17_kind_phys) / 0.07_kind_phys ) )
-      endif
-   else
-      czil = 0.095_kind_phys !0.075 !0.10
-   endif
-
-   zt = z_0*exp(-karman*czil*sqrt(restar))
-   zt = min( zt, p75 * z_0)
-   zt = max( zt, 0.0001_kind_phys)
-   zq = zt
-
+else
+   czil = 0.095_kind_phys !0.075 !0.10
+   znt  = z_0
 endif
+
+zt = znt*exp(-karman*czil*sqrt(restar))
+zt = min( zt, p75 * znt)
+zt = max( zt, 0.0001_kind_phys)
+zq = zt
 
 end subroutine zilitinkevich_1995
 !--------------------------------------------------------------------
