@@ -46,6 +46,7 @@ MODULE module_sf_mynnsfc_ice
 !NOTE: This code was primarily tested in combination with the RUC LSM.
 !      Performance with the Noah (or other) LSM is relatively unknown.
 !-------------------------------------------------------------------
+ use, intrinsic :: ieee_arithmetic
 !Include host model constants
  use module_sf_mynnsfc_common, only: &
       cp           , & !=7*Rd/2
@@ -249,6 +250,28 @@ real(kind_phys) :: restar,visc,dqg,oldust,oldtst
 errflg = 0
 errmsg = ''
 !-------------------------------------------------------------------
+
+if (debug_code >= 1) then
+   if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
+      write(*,*)" === check for incoming garbage at i=",i,"j=",j
+      if(pblh<=zero .or. pblh>7000. .or. ieee_is_nan(pblh))write(*,*)" pblh=",pblh
+      if(tskin <150. .or. tskin >400. .or. ieee_is_nan(tskin))write(*,*)" tskin=", tskin
+      if(znt<=zero .or. znt >2. .or. ieee_is_nan(znt))   write(*,*)" znt=", znt
+      if(ust<=zero .or. ust >4. .or. ieee_is_nan(ust))   write(*,*)" ust=", ust
+      if(psfcpa<=50000 .or. psfcpa >110000. .or. ieee_is_nan(psfcpa))write(*,*)"psfcpa=",PSFCPA
+      if(dz8w_1<=zero .or. dz8w_1 >2000. .or. ieee_is_nan(dz8w_1)) write(*,*)" dz=",dz8w_1
+      if(qfx<= -800./xlv .or. qfx >2000./xlv .or. ieee_is_nan(qfx)) write(*,*)" qfx=",qfx
+      if(hfx<=-1000. .or. hfx >2000. .or. ieee_is_nan(hfx)) write(*,*)" hfx=",hfx
+      if(psim_stab(1)>zero .or. psim_stab(1)<-1. .or. ieee_is_nan(psim_stab(1))) write(*,*)" psim_stab=",psim_stab(1)
+      if(psim_unstab(1)<zero .or. psim_unstab(1)>2. .or. ieee_is_nan(psim_unstab(1))) write(*,*)" psim_unstab=",psim_unstab(1)
+      if(psih_stab(1)>zero .or. psih_stab(1)<-1. .or. ieee_is_nan(psih_stab(1))) write(*,*)" psih_stab=",psih_stab(1)
+      if(psih_unstab(1)<zero .or. psih_unstab(1)>2. .or. ieee_is_nan(psih_unstab(1))) write(*,*)" psih_unstab=",psih_unstab(1)
+      if(t_1<=100. .or. t_1 >400. .or. ieee_is_nan(t_1)) write(*,*)" t_1=", t_1
+      if(rho_1<=0.5 .or. rho_1 >1.5 .or. ieee_is_nan(rho_1))write(*,*)" rho_1=", rho_1
+      if(p_1<=40000. .or. p_1 >120000. .or. ieee_is_nan(p_1))write(*,*)" p_1=", p_1
+      if(qv_1<=1.e-10 .or. qv_1 >0.05 .or. ieee_is_nan(qv_1))write(*,*)" qv_1=", qv_1
+   endif
+endif
 
 ! psfc ( in cmb) is used later in saturation checks
 psfc=psfcpa/1000._kind_phys
