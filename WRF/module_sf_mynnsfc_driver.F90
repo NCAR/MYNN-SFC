@@ -534,7 +534,7 @@
                  !2d variables - transformed to single point
                  chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
                  pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
-                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 , &
+                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
                  mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
                  psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
                  tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
@@ -557,43 +557,7 @@
                     )
        endif
 
-       if ((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
-           (((xland_1-1.5) .ge. zero) .and. (snowh_1 .ge. snow_thresh))) then   !seaice 
-          call mynnsfc_ice( &
-                 !model info
-                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
-                 dx       = dx_1      , xland    = xland_1   , iter     = iter     ,                         &
-                 !3d input - transformed to single point
-                 u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
-                 p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
-                 v_2      = v_2       , dz8w_2   = dz8w_2    ,                                               &
-                 !2d variables - transformed to single point
-                 chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
-                 pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
-                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
-                 mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
-                 psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
-                 tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
-                 t2       = t2_1      , q2       = q2_1      , flhc     = flhc_1   , flqc      = flqc_1    , &
-                 snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
-                 lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
-                 cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
-                 wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
-                 ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
-                 psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
-                 !configuration options
-                 spp_sfc  = spp_pbl   , isfflx    = isfflx   ,                                               &
-                 flag_restart= restart, flag_cycle= cycling  , compute_flux       = compute_flux           , &
-                 psi_opt  = psi_opt   , lsm      = flag_lsm  , compute_diag       = compute_diag           , &
-                 lsm_ruc  = lsm_ruc   ,                                                                      &
-                 !stability function tables
-                 psim_stab= psim_stab ,psim_unstab=psim_unstab,psih_stab=psih_stab ,psih_unstab=psih_unstab, &
-                 !error management
-                 errmsg   = errmsg    , errflg   = errflg                                                    &
-                    )
-       endif
-
-       if (((xland_1-1.5) .ge. zero)) then
+       if (((xland_1-1.5) .ge. zero) .and. (snowh_1 .lt. snow_thresh)) then
           call mynnsfc_water( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -625,6 +589,42 @@
                  flag_restart= restart, flag_cycle= cycling  , compute_flux        = compute_flux          , &
                  psi_opt  = psi_opt   ,                        compute_diag        = compute_diag          , &
                  lsm_ruc  = lsm_ruc   , lsm      = flag_lsm  , shalwater_z0        = shalwater_z0          , &
+                 !stability function tables
+                 psim_stab= psim_stab ,psim_unstab=psim_unstab,psih_stab=psih_stab ,psih_unstab=psih_unstab, &
+                 !error management
+                 errmsg   = errmsg    , errflg   = errflg                                                    &
+                    )
+       endif
+
+       if ((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
+           (((xland_1-1.5) .ge. zero) .and. (snowh_1 .ge. snow_thresh))) then   !seaice
+          call mynnsfc_ice( &
+                !model info
+                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
+                 dx       = dx_1      , xland    = xland_1   , iter     = iter     ,                         &
+                 !3d input - transformed to single point
+                 u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
+                 p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
+                 v_2      = v_2       , dz8w_2   = dz8w_2    ,                                               &
+                 !2d variables - transformed to single point
+                 chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
+                 pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
+                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
+                 mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
+                 psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
+                 tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
+                 t2       = t2_1      , q2       = q2_1      , flhc     = flhc_1   , flqc      = flqc_1    , &
+                 snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
+                 lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
+                 cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
+                 wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
+                 ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
+                 psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
+                 !configuration options
+                 spp_sfc  = spp_pbl   , isfflx    = isfflx   ,                                               &
+                 flag_restart= restart, flag_cycle= cycling  , compute_flux       = compute_flux           , &
+                 psi_opt  = psi_opt   , lsm      = flag_lsm  , compute_diag       = compute_diag           , &
+                 lsm_ruc  = lsm_ruc   ,                                                                      &
                  !stability function tables
                  psim_stab= psim_stab ,psim_unstab=psim_unstab,psih_stab=psih_stab ,psih_unstab=psih_unstab, &
                  !error management
