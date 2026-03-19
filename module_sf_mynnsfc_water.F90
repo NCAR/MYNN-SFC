@@ -298,8 +298,9 @@ if ( flag_iter ) then
    tsk = tskin
    !saturation vapor pressure wrt water (bolton 1980)
    e1=svp1*exp(svp2*(tsk-svpt0)/(tsk-svp3))
-   !the saturation vapor pressure for salty water is on average 2% lower
-   if (lakemask .lt. p5) e1=e1*0.98_kind_phys
+   !For seawater with a salinity of 35 psu (practical salinity units), the saturation
+   !vapor pressure is reduced by approximately 1.88% compared to pure water.
+   if (lakemask .lt. p5) e1=e1*0.9812_kind_phys
    qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
    qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
    !if(qsfc>one.or.qsfc<0.) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
