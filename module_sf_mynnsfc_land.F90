@@ -48,7 +48,7 @@ MODULE module_sf_mynnsfc_land
 !Include host model constants
  use module_sf_mynnsfc_common, only: &
       cp           , & !=7*Rd/2
-      grav         , & !=9.81ish
+      grav         , & !=9.81
       rd => r_d    , & !=287.
       rovcp => rcp , & !=Rd/cp
       xlv          , & !=2.5e6
@@ -369,17 +369,16 @@ if (flag_iter) then
    !tgs - the line below could be used when hflx,qflx are moved from
    !      interstitial to sfcprop
    !fluxc = max(hflx + ep1*thvsk*qflx,zero)
-   fluxc = max(hfx/rho_1/cp                    &
-     &    + ep1*thvsk*qfx/rho_1,zero)
+   fluxc=max(hfx/rho_1/cp + ep1*thvsk*qfx/rho_1, zero)
    ! wstar = vconvc*(g/tsk*pblh*fluxc)**p333
    ! increase height scale, assuming that the non-local transoport
    ! from the mass-flux (plume) mixing exceedsd the pblh.
-   wstar = vconvc*(grav/tsk*min(1.5_kind_phys*pblh,4000._kind_phys)*fluxc)**p333
+   wstar=vconvc*(grav/tsk*min(1.5_kind_phys*pblh,4000._kind_phys)*fluxc)**p333
    !--------------------------------------------------------
    ! Mahrt and Sun low-res correction
    ! (for 13 km ~ 0.37 m/s; for 3 km == 0 m/s)
    !--------------------------------------------------------
-   vsgd = min( 0.32_kind_phys * (max(dx/5000._kind_phys-one,zero))**p333 , p5)
+   vsgd=min( 0.32_kind_phys * (max(dx/5000._kind_phys-one,zero))**p333 , p5)
    wspd=sqrt(wspd*wspd+wstar*wstar+vsgd*vsgd)
    wspd=max(wspd,wmin)
    !--------------------------------------------------------
@@ -895,7 +894,7 @@ if ( debug_code == 2) then
       print*," z0:",zntstoch," zt:",zt," za:",za
       print*," mavail:",mavail," qsfc:",qsfc," qv:",qv_1
       print*,"psix=",psix," t_1:",t_1
-      write(*,*)"============================================="
+      write(*,*)"==========================+==================="
    endif
    endif
 endif ! end debug option

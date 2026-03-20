@@ -1,5 +1,5 @@
 !> \file module_sf_mynnsfc_driver.F90
-!!  This serves as the interface between the WRF surface driver and the MYNN
+!!  This serves as the interface between the model surface driver and the MYNN
 !!  surface-layer scheme(s) in module_sfc_mynnsfc_land.F90, module_sfc_mynnsfc_ice.F90, and
 !!  module_sfc_mynnsfc_water.F90.
 
@@ -117,6 +117,7 @@
         ch       , ck       , cka      , cd       , cda      ,             &
         stress   , hflx     , qflx     , cm       , fm       , fh        , &
         fm10     , fh2      , tsurf    , water_depth         ,             &
+        xice     , xice_threshold      ,                                   &
         !configuration options
         spp_pbl  , pattern_spp_pbl     ,                                   &
         sf_mynn_sfcflux_water          ,                                   &
@@ -229,6 +230,7 @@
  integer,intent(inout),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
  logical,intent(inout),optional:: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
  logical,intent(inout),optional:: flag_iter
+ real,   intent(in)::xice_threshold
  
  !Input data needed for GFS-related options
  integer, dimension(ims:ime,jms:jme), optional, intent(in) :: vegtype
@@ -262,6 +264,7 @@
     tsk,    &
     psfcpa, &
     snowh,  &
+    xice,   &
     dx
 
  !--- output arguments:
@@ -320,14 +323,14 @@
     psih
 
 !--- local variables and arrays:
- integer:: i,j,k,vegtype_1,iter,loc_z0_type
+ integer:: i,j,k,vegtype_1,iter,loc_z0_type,ncalls
  logical:: loc_redrag,loc_iter,loc_cycle
  real(kind_phys),dimension(ims:ime,jms:jme):: wstar
  real(kind_phys),dimension(ims:ime,jms:jme):: qstar
 
 !intermediate single-point variables will be *_1
  real(kind_phys) :: mavail_1,pblh_1,xland_1,tsk_1,psfcpa_1,           &
-                     snowh_1,dx_1,lakemask_1,wat_depth_1
+                     snowh_1,dx_1,lakemask_1,wat_depth_1,xice_1
  real(kind_phys) :: u_1,v_1,u_2,v_2,qv_1,p_1,t_1,rho_1,dz8w_1,        &
                      dz8w_2,rstoch_1,qvmr
  real(kind_phys) :: hfx_1,qfx_1,lh_1,mol_1,rmol_1,                    &
@@ -341,7 +344,7 @@
                      fm10_1,fh2_1,hflx_1,qflx_1
  real(kind_phys) :: sigmaf_1,shdmax_1,z0pert_1,ztpert_1
 
- integer, parameter:: debug_driver = 0  !0: no output, 1: write output
+ integer, parameter:: debug_driver = 1  !0: no output, 1: write output
 !-----------------------------------------------------------------------------------------------------------------
  errmsg = ' '
  errflg = 0
@@ -353,11 +356,11 @@
  else
     loc_cycle = .false.
  endif
- 
+
  if (debug_driver > 0) then
     print*,"=======in beginning of mynn sfc driver=============="
     print*,"flagc_lsm=",trim('does not exist')," flag_lsm=",flag_lsm
-    print*,"cycling=",cycling," loc_cycle=",loc_cycle
+    print*,"cycling=","does not exit"," loc_cycle=",loc_cycle
     print*,"itimestep=",itimestep," restart=",restart
  endif
     
@@ -415,6 +418,7 @@
        mavail_1 = mavail(i,j)
        pblh_1   = pblh(i,j)
        xland_1  = xland(i,j)
+       xice_1   = xice(i,j)
        tsk_1    = tsk(i,j)
        psfcpa_1 = psfcpa(i,j)
        snowh_1  = snowh(i,j)
@@ -519,7 +523,20 @@
           fh2_1    = zero  !ccpp
        endif
 
+       if (debug_driver > 0) then
+          print*,"=== in mynnsfc_driver, prior to component calls ==="
+          print*,"itimestep=",itimestep," i=",i," j=",j
+          print*,"xland=",xland_1," xice=",xice_1," znt=",znt_1
+          print*,"snowh=",snowh_1," xice_threshold=",xice_threshold
+          ncalls=0
+       endif
+
        if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .lt. snow_thresh)) then !5 cm threshold for binary snow/no-snow 
+       !if ((xland_1-1.5) .lt. zero) then !alternative - best for fractional landuse/snow, but unnecessarily duplicative for dominate types 
+          if (debug_driver > 0) then
+             print*,"--> calling mynnsfc_land..."
+             ncalls=ncalls+1
+          endif
           call mynnsfc_land( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -557,7 +574,12 @@
                     )
        endif
 
-       if (((xland_1-1.5) .ge. zero) .and. (snowh_1 .lt. snow_thresh)) then
+       !if (((xland_1-1.5) .ge. zero) .or. ((xice_1 .gt. zero) .and. (xice_1 .lt. one))) then
+       if ((xland_1-1.5) .ge. zero) then !best for fractional landuse/snow
+          if (debug_driver > 0) then
+             print*,"--> calling mynnsfc_water..."
+             ncalls=ncalls+1
+          endif
           call mynnsfc_water( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -597,7 +619,11 @@
        endif
 
        if ((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
-           (((xland_1-1.5) .ge. zero) .and. (snowh_1 .ge. snow_thresh))) then   !seaice
+            (xice_1.ge.xice_threshold .and. xice_1.lt.one)) then                !partial seaice
+          if (debug_driver > 0) then
+             print*,"--> calling mynnsfc_ice..."
+             ncalls=ncalls+1
+          endif
           call mynnsfc_ice( &
                 !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -686,9 +712,10 @@
        if(present(cm))    cm(i,j)    = cm_1
 
        if (debug_driver == 1) then
-          write(*,*)"=== end of driver, xland=",xland(i,j),"snow=",snowh(i,j)
-          write(*,*)"hfx=",hfx(i,j)," qfx=",qfx(i,j)," lh=",lh(i,j)
-          write(*,*)"flqc=",flqc(i,j)," flhc=",flhc(i,j)," u*=",ust(i,j)
+          write(*,*)"=== end of driver, ncalls=", ncalls
+          write(*,*)"br=",br_1,"zol=",zol_1," wspd=",wspd_1
+          write(*,*)"hfx=",hfx_1," qfx=",qfx_1," lh=",lh_1
+          write(*,*)"flqc=",flqc_1," flhc=",flhc_1," u*=",ust_1
           !write(*,*)"psim_stab=",psim_stab(1)," psim_unstab=",psim_unstab(1)
           !write(*,*)"psih_stab=",psih_stab(1)," psih_unstab=",psih_unstab(1)
           write(*,*)"=================================================="
