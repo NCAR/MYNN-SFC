@@ -166,14 +166,14 @@ module module_sf_mynnsfc_wrf_tests
       logical, intent(in) :: saveoutput
       integer :: iostat, line_num
       integer, parameter :: i=1, j=1
-
+      real, parameter :: xice_threshold=0.5
       character(len=2000) :: input_line
       integer, parameter :: input_unit = 10
       integer, parameter :: output_unit = 20
        
       logical :: compute_flux, compute_diag, redrag, flag_restart
       real, dimension(1) ::                      &
-            dx, xland,                           & 
+            dx, xland, xice,                     & 
             U1D,V1D,T1D,QV1D,                    & 
             P1D, dz8w1d,RHO1D, U1D2,             &
             V1D2, dz2w1d,                        &
@@ -217,7 +217,8 @@ module module_sf_mynnsfc_wrf_tests
       th3d=0.0
       rho3d=0.0
 
-
+      xice=0.0
+      
       ! Initialize error variables
       errmsg = ''
       errflg = 0
@@ -296,6 +297,7 @@ module module_sf_mynnsfc_wrf_tests
               qsfc=QSFC, u10=u10_mod, v10=v10_mod, th2 =th2_mod, t2=t2_mod ,                         &
               q2=q2_mod, snowh=snowh, gz1oz0=GZ1OZ0, wspd=WSPD, br=br, dx=DX,                        &
               ch=ch, ck=ck, cka=cka, cd=cd, cda=cda ,                                                &
+              xice=xice, xice_threshold=xice_threshold,                                              &
               stress=stress , hflx=hflx, qflx=qflx, fm=psix, fh=psit,                                &
               fm10=psix10, fh2=psit2,                                                                &
               tsurf=tsk    ,                                                                         &
