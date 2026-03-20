@@ -1,5 +1,5 @@
 !> \file module_sf_mynnsfc_driver.F90
-!!  This serves as the interface between the WRF surface driver and the MYNN
+!!  This serves as the interface between the model surface driver and the MYNN
 !!  surface-layer scheme(s) in module_sfc_mynnsfc_land.F90, module_sfc_mynnsfc_ice.F90, and
 !!  module_sfc_mynnsfc_water.F90.
 
@@ -117,6 +117,7 @@
         ch       , ck       , cka      , cd       , cda      ,             &
         stress   , hflx     , qflx     , cm       , fm       , fh        , &
         fm10     , fh2      , tsurf    , water_depth         ,             &
+        xice     , xice_threshold      ,                                   &
         !configuration options
         spp_pbl  , pattern_spp_pbl     ,                                   &
         sf_mynn_sfcflux_water          ,                                   &
@@ -231,6 +232,7 @@
  integer,intent(inout),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
  logical,intent(inout),optional:: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
  logical,intent(inout),optional:: flag_iter
+ real,   intent(in)::xice_threshold
  
  !Input data needed for GFS-related options
  integer, dimension(ims:ime,jms:jme), optional, intent(in) :: vegtype
@@ -264,6 +266,7 @@
     tsk,    &
     psfcpa, &
     snowh,  &
+    xice,   &
     dx
 
  !--- output arguments:
@@ -322,14 +325,14 @@
     psih
 
 !--- local variables and arrays:
- integer:: i,j,k,vegtype_1,iter,loc_z0_type
+ integer:: i,j,k,vegtype_1,iter,loc_z0_type,ncalls
  logical:: loc_redrag,loc_iter,loc_cycle
  real(kind_phys),dimension(ims:ime,jms:jme):: wstar
  real(kind_phys),dimension(ims:ime,jms:jme):: qstar
 
 !intermediate single-point variables will be *_1
  real(kind_phys) :: mavail_1,pblh_1,xland_1,tsk_1,psfcpa_1,           &
-                     snowh_1,dx_1,lakemask_1,wat_depth_1
+                     snowh_1,dx_1,lakemask_1,wat_depth_1,xice_1
  real(kind_phys) :: u_1,v_1,u_2,v_2,qv_1,p_1,t_1,rho_1,dz8w_1,        &
                      dz8w_2,rstoch_1,qvmr
  real(kind_phys) :: hfx_1,qfx_1,lh_1,mol_1,rmol_1,                    &
@@ -428,6 +431,7 @@
        mavail_1 = mavail(i,j)
        pblh_1   = pblh(i,j)
        xland_1  = xland(i,j)
+       xice_1   = xice(i,j)
        tsk_1    = tsk(i,j)
        psfcpa_1 = psfcpa(i,j)
        snowh_1  = snowh(i,j)
@@ -532,7 +536,20 @@
           fh2_1    = zero  !ccpp
        endif
 
+       if (debug_driver > 0) then
+          print*,"=== in mynnsfc_driver, prior to component calls ==="
+          print*,"itimestep=",itimestep," i=",i," j=",j
+          print*,"xland=",xland_1," xice=",xice_1," znt=",znt_1
+          print*,"snowh=",snowh_1," xice_threshold=",xice_threshold
+          ncalls=0
+       endif
+
        if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .lt. snow_thresh)) then !5 cm threshold for binary snow/no-snow 
+       !if ((xland_1-1.5) .lt. zero) then !alternative - best for fractional landuse/snow, but unnecessarily duplicative for dominate types 
+          if (debug_driver > 0) then
+             print*,"--> calling mynnsfc_land..."
+             ncalls=ncalls+1
+          endif
           call mynnsfc_land( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -547,7 +564,7 @@
                  !2d variables - transformed to single point
                  chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
                  pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
-                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 , &
+                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
                  mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
                  psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
                  tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
@@ -570,43 +587,12 @@
                     )
        endif
 
-       if ((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
-           (((xland_1-1.5) .ge. zero) .and. (snowh_1 .ge. snow_thresh))) then   !seaice 
-          call mynnsfc_ice( &
-                 !model info
-                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
-                 dx       = dx_1      , xland    = xland_1   , iter     = iter     ,                         &
-                 !3d input - transformed to single point
-                 u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
-                 p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
-                 v_2      = v_2       , dz8w_2   = dz8w_2    ,                                               &
-                 !2d variables - transformed to single point
-                 chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
-                 pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
-                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
-                 mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
-                 psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
-                 tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
-                 t2       = t2_1      , q2       = q2_1      , flhc     = flhc_1   , flqc      = flqc_1    , &
-                 snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
-                 lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
-                 cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
-                 wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
-                 ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
-                 psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
-                 !configuration options
-                 spp_sfc  = spp_pbl   , isfflx    = isfflx   ,                                               &
-                 flag_restart= restart, flag_cycle= cycling  , compute_flux       = compute_flux           , &
-                 psi_opt  = psi_opt   , lsm      = flag_lsm  , compute_diag       = compute_diag           , &
-                 lsm_ruc  = lsm_ruc   ,                                                                      &
-                 !stability function tables
-                 psim_stab= psim_stab ,psim_unstab=psim_unstab,psih_stab=psih_stab ,psih_unstab=psih_unstab, &
-                 !error management
-                 errmsg   = errmsg    , errflg   = errflg                                                    &
-                    )
-       endif
-
-       if (((xland_1-1.5) .ge. zero)) then
+       !if (((xland_1-1.5) .ge. zero) .or. ((xice_1 .gt. zero) .and. (xice_1 .lt. one))) then
+       if ((xland_1-1.5) .ge. zero) then !best for fractional landuse/snow
+          if (debug_driver > 0) then
+             print*,"--> calling mynnsfc_water..."
+             ncalls=ncalls+1
+          endif
           call mynnsfc_water( &
                  !model info
                  i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
@@ -638,6 +624,46 @@
                  flag_restart= restart, flag_cycle= cycling  , compute_flux        = compute_flux          , &
                  psi_opt  = psi_opt   ,                        compute_diag        = compute_diag          , &
                  lsm_ruc  = lsm_ruc   , lsm      = flag_lsm  , shalwater_z0        = shalwater_z0          , &
+                 !stability function tables
+                 psim_stab= psim_stab ,psim_unstab=psim_unstab,psih_stab=psih_stab ,psih_unstab=psih_unstab, &
+                 !error management
+                 errmsg   = errmsg    , errflg   = errflg                                                    &
+                    )
+       endif
+
+       if ((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
+            (xice_1.ge.xice_threshold .and. xice_1.lt.one)) then                !partial seaice
+          if (debug_driver > 0) then
+             print*,"--> calling mynnsfc_ice..."
+             ncalls=ncalls+1
+          endif
+          call mynnsfc_ice( &
+                !model info
+                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
+                 dx       = dx_1      , xland    = xland_1   , iter     = iter     ,                         &
+                 !3d input - transformed to single point
+                 u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
+                 p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
+                 v_2      = v_2       , dz8w_2   = dz8w_2    ,                                               &
+                 !2d variables - transformed to single point
+                 chs      = chs_1     , chs2     = chs2_1    , cqs2     = cqs2_1   , cqs       = cqs_1     , &
+                 pblh     = pblh_1    , rmol     = rmol_1    , znt      = znt_1    , psfcpa    = psfcpa_1  , &
+                 ust      = ust_1     , ustm     = ustm_1    , stress   = stress_1 ,                         &
+                 mavail   = mavail_1  , zol      = zol_1     , mol      = mol_1    , tsurf     = tsurf_1   , &
+                 psim     = psim_1    , psih     = psih_1    , hfx      = hfx_1    , qfx       = qfx_1     , &
+                 tskin    = tsk_1     , u10      = u10_1     , v10      = v10_1    , th2       = th2_1     , &
+                 t2       = t2_1      , q2       = q2_1      , flhc     = flhc_1   , flqc      = flqc_1    , &
+                 snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
+                 lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
+                 cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
+                 wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
+                 ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
+                 psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
+                 !configuration options
+                 spp_sfc  = spp_pbl   , isfflx    = isfflx   ,                                               &
+                 flag_restart= restart, flag_cycle= cycling  , compute_flux       = compute_flux           , &
+                 psi_opt  = psi_opt   , lsm      = flag_lsm  , compute_diag       = compute_diag           , &
+                 lsm_ruc  = lsm_ruc   ,                                                                      &
                  !stability function tables
                  psim_stab= psim_stab ,psim_unstab=psim_unstab,psih_stab=psih_stab ,psih_unstab=psih_unstab, &
                  !error management
@@ -699,9 +725,10 @@
        if(present(cm))    cm(i,j)    = cm_1
 
        if (debug_driver == 1) then
-          write(*,*)"=== end of driver, xland=",xland(i,j),"snow=",snowh(i,j)
-          write(*,*)"hfx=",hfx(i,j)," qfx=",qfx(i,j)," lh=",lh(i,j)
-          write(*,*)"flqc=",flqc(i,j)," flhc=",flhc(i,j)," u*=",ust(i,j)
+          write(*,*)"=== end of driver, ncalls=", ncalls
+          write(*,*)"br=",br_1,"zol=",zol_1," wspd=",wspd_1
+          write(*,*)"hfx=",hfx_1," qfx=",qfx_1," lh=",lh_1
+          write(*,*)"flqc=",flqc_1," flhc=",flhc_1," u*=",ust_1
           !write(*,*)"psim_stab=",psim_stab(1)," psim_unstab=",psim_unstab(1)
           !write(*,*)"psih_stab=",psih_stab(1)," psih_unstab=",psih_unstab(1)
           write(*,*)"=================================================="
