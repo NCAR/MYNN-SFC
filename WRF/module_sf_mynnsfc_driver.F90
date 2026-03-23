@@ -344,7 +344,7 @@
                      fm10_1,fh2_1,hflx_1,qflx_1
  real(kind_phys) :: sigmaf_1,shdmax_1,z0pert_1,ztpert_1
 
- integer, parameter:: debug_driver = 1  !0: no output, 1: write output
+ integer, parameter:: debug_driver = 0  !0: no output, 1: write output
 !-----------------------------------------------------------------------------------------------------------------
  errmsg = ' '
  errflg = 0
