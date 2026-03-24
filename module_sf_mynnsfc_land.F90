@@ -937,7 +937,8 @@ if ( zt_opt .eq. 1 ) then
    else
       !variable Czil for RUC LSM (varies less than the above form)
       !czil = 0.07_kind_phys + ten ** ( -0.50_kind_phys * ( (z_0 + 0.15_kind_phys) / 0.08_kind_phys ) )
-      czil = 0.08_kind_phys + ten ** ( -0.60_kind_phys * ( (z_0 + 0.10_kind_phys) / 0.06_kind_phys ) )
+      !czil = 0.08_kind_phys + ten ** ( -0.60_kind_phys * ( (z_0 + 0.10_kind_phys) / 0.06_kind_phys ) )
+      czil = 0.08_kind_phys + ten ** ( -0.60_kind_phys * ( (z_0 + 0.11_kind_phys) / 0.06_kind_phys ) )
       znt  = min(p6, z_0)
    endif
 else
