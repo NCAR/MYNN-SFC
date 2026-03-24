@@ -318,8 +318,8 @@ if (flag_iter) then
    tsk = tskin
    !tsk = 0.5 * (tsurf+tskin)
    ! convert skin temperatures to potential temperature:
-   thsk = tsk*thcon   !(k)
-   thvsk = thsk*(one+ep1*qv_1)   !(k)
+   thsk = tsk*thcon              !(Kelvin)
+   thvsk = thsk*(one+ep1*qsfc)   !(Kelvin)
    if (thvsk < 160. .or. thvsk > 390.) then
       print *,"*** unreasonable skin temperatures"
       print *,'thvsk',itimestep,i,thvsk,thsk,tsurf,tskin,qsfc
@@ -331,8 +331,8 @@ th_1  = t_1*(100000._kind_phys/p_1)**rovcp    !(Kelvin)
 tc_1  = t_1-273.15_kind_phys                  !(celsius)
 
 ! convert to virtual temperature
-thv_1 = th_1*(one+ep1*qv_1)                   !(K)
-tv_1  = t_1*(one+ep1*qv_1)                    !(K)
+thv_1 = th_1*(one+ep1*qv_1)                   !(Kelvin)
+tv_1  = t_1*(one+ep1*qv_1)                    !(Kelvin)
 rho_1 = p_1/(rd*tv_1)           !now using value calculated in sfc driver
 za    = p5*dz8w_1               !height of first half-sigma level
 za2   = dz8w_1 + p5*dz8w_2      !height of 2nd half-sigma level
