@@ -19,15 +19,25 @@
 !! \htmlinclude module_sf_mynnsfc_driver_init.html
 !!
       subroutine module_sf_mynnsfc_driver_init(do_mynnsfclay, &
-       &                             errmsg, errflg)
+           con_cp, con_g, con_rd, con_rv, &
+           con_rocp, con_hvap, con_hfus, con_fvirt, &
+           con_eps, errmsg, errflg)
 
          logical,          intent(in)  :: do_mynnsfclay
+         real(kind_phys),  intent(in)  :: con_cp, con_g, con_rd, con_rv
+         real(kind_phys),  intent(in)  :: con_rocp, con_hvap, con_hfus, con_fvirt
+         real(kind_phys),  intent(in)  :: con_eps
          character(len=*), intent(out) :: errmsg
          integer, intent(out) :: errflg
 
          ! Initialize CCPP error handling variables
          errmsg = ''
          errflg = 0
+
+        ! Initialize sf_mynn
+        call sf_mynn_init(con_cp, con_g, con_rd, con_rv, &
+             con_rocp, con_hvap, con_hfus, con_fvirt, &
+             con_eps)
 
         ! Consistency checks
         if (.not. do_mynnsfclay) then
@@ -94,8 +104,6 @@ SUBROUTINE module_sf_mynnsfc_driver_run(   &
 
 ! should be moved to inside the mynn:
       use machine , only : kind_phys
-      use physcons, only : cp     => con_cp,              &
-     &                     grav   => con_g
 
 !      USE module_sf_mynnsfc, only : SFCLAY_mynn
 !tgs - info on iterations:
@@ -111,8 +119,6 @@ SUBROUTINE module_sf_mynnsfc_driver_run(   &
 !-------------------------------------------------------------------
       implicit none
 !-------------------------------------------------------------------
-!  ---  derive more constant parameters:
-      real(kind_phys), parameter :: g_inv=1./grav
 
       character(len=*), intent(out) :: errmsg
       integer, intent(out) :: errflg
