@@ -63,18 +63,6 @@ MODULE module_sf_mynnsfc
 !NOTE: This code was primarily tested in combination with the RUC LSM.
 !      Performance with the Noah (or other) LSM is relatively unknown.
 !-------------------------------------------------------------------
-!Include host model constants
-      use physcons, only : cp     => con_cp,     & !=7*Rd/2
-     &                     grav   => con_g,      & !=9.81
-     &                     Rd     => con_rd,     & !=287.
-     &                     Rv     => con_rv,     & !=461.6
-!     &                     cpv    => con_cvap,   & !=4*Rv
-     &                     rovcp  => con_rocp,   & !=Rd/cp
-     &                     xlv    => con_hvap,   & !2.5e6
-     &                     xlf    => con_hfus,   & !3.5e5
-     &                     ep1    => con_fvirt,  & !Rv/Rd - 1
-     &                     ep2    => con_eps       !Rd/Rv
-
 !use kind_phys for real-types
     use machine , only : kind_phys
 
@@ -82,9 +70,21 @@ MODULE module_sf_mynnsfc
   IMPLICIT NONE
 !-------------------------------------------------------------------
 !Drive and/or define more constant:
-  real(kind_phys), parameter :: ep3           = 1.-ep2
-  real(kind_phys), parameter :: g_inv         = 1.0/grav
-  real(kind_phys), parameter :: rvovrd        = Rv/Rd
+  real(kind_phys) :: cp = 1.0E30_kind_phys
+  real(kind_phys) :: grav = 1.0E30_kind_phys
+  real(kind_phys) :: Rd = 1.0E30_kind_phys
+  real(kind_phys) :: Rv = 1.0E30_kind_phys
+  real(kind_phys) :: rovcp = 1.0E30_kind_phys
+  real(kind_phys) :: xlv = 1.0E30_kind_phys
+  real(kind_phys) :: xlf = 1.0E30_kind_phys
+  real(kind_phys) :: ep1 = 1.0E30_kind_phys
+  real(kind_phys) :: ep2 = 1.0E30_kind_phys
+  real(kind_phys) :: ep3 = 1.0E30_kind_phys
+  real(kind_phys) :: g_inv = 1.0E30_kind_phys
+  real(kind_phys) :: rvovrd = 1.0E30_kind_phys
+!$acc declare create(cp, grav, Rd, Rv, rovcp, xlv, xlf, &
+!$acc                ep1, ep2, ep3, g_inv, rvovrd)
+
   real(kind_phys), parameter :: wmin          = 0.1    ! Minimum wind speed
   real(kind_phys), parameter :: karman        = 0.4
   real(kind_phys), parameter :: SVP1          = 0.6112
@@ -111,6 +111,32 @@ MODULE module_sf_mynnsfc
 !$acc declare create(psim_stab, psim_unstab, psih_stab, psih_unstab)
 
 CONTAINS
+
+  subroutine sf_mynn_init(con_cp, con_g, con_rd, con_rv, &
+       con_rocp, con_hvap, con_hfus, con_fvirt, &
+       con_eps)
+     real(kind_phys), intent(in) :: con_cp, con_g, con_rd, con_rv
+     real(kind_phys), intent(in) :: con_rocp, con_hvap, con_hfus, con_fvirt
+     real(kind_phys), intent(in) :: con_eps
+!Include host model constants
+     cp = con_cp
+     grav = con_g
+     Rd = con_rd
+     Rv = con_rv
+     rovcp = con_rocp
+     xlv = con_hvap
+     xlf = con_hfus
+     ep1 = con_fvirt
+     ep2 = con_eps
+
+     ep3 = 1.-ep2
+     g_inv = 1.0/grav
+     rvovrd = Rv/Rd
+
+!$acc update device(cp, grav, Rd, Rv, rovcp, xlv, xlf, &
+!$acc               ep1, ep2, ep3, g_inv, rvovrd)
+   end subroutine sf_mynn_init
+
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
@@ -2270,7 +2296,7 @@ IF (compute_diag) then
    !$acc                    THSK_lnd, THSK_wat, THSK_ice, &
    !$acc                    QSFC_lnd, QSFC_wat, QSFC_ice, &
    !$acc                    U10, V10, U1D, V1D, U1D2, V1D2, &
-   !$acc                    ZNTstoch_lnd, ZNTstoch_lnd, ZNTstoch_ice, &
+   !$acc                    ZNTstoch_lnd, ZNTstoch_wat, ZNTstoch_ice, &
    !$acc                    PSIX_lnd, PSIX_wat, PSIX_ice, &
    !$acc                    PSIX10_lnd, PSIX10_wat, PSIX10_ice, &
    !$acc                    PSIT2_lnd, PSIT2_wat, PSIT2_ice, &
@@ -2392,7 +2418,7 @@ ENDIF ! end compute_diag
 !-----------------------------------------------------
 !$acc serial present(dry, wet, icy, CPM, MAVAIL, &
 !$acc       HFX, LH, wstar, RHO1D, PBLH, ZOL, ZA, MOL, &
-!$acc       PSIM, PSIH, WSTAR, T1D, TH1D, THV1D, QVSH, &
+!$acc       PSIM, PSIH, T1D, TH1D, THV1D, QVSH, &
 !$acc       UST_wat, UST_lnd, UST_ice, &
 !$acc       THSK_wat, THSK_lnd, THSK_ice, &
 !$acc       THVSK_wat, THVSK_lnd, THVSK_ice, &
