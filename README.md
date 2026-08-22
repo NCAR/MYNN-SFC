@@ -1,4 +1,4 @@
-# MYNN-SFC
+![MYNN-SFC logo](images/MYNNsfclogo3.png)
 
 The Mellor–Yamada–Nakanishi–Niino (MYNN) surface layer scheme has been developed
 for use in NOAA's operational forecast models (RAP, HRRR, and RRFS). It has been
