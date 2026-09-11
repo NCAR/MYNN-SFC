@@ -743,7 +743,7 @@ if (flag_iter) then
       endif
 
       !transfer coeff for some lsms:
-      !chs=ust*karman/(alog(karman*ust*za &
+      !chs=ust*karman/(log(karman*ust*za &
       !       /xka+za/zl)-psih)
       chs=ust*karman/psit
 
@@ -1566,8 +1566,8 @@ end function
         real(kind_phys) :: zolf,x,ym,psimc,psimk
 
         x=(one-16._kind_phys*zolf)**.25_kind_phys
-        !psimk=2*ALOG(0.5*(1+X))+ALOG(0.5*(1+X*X))-2.*ATAN(X)+2.*ATAN(1.)
-        !psimk=2.*ALOG(0.5*(1+X))+ALOG(0.5*(1+X*X))-2.*ATAN(X)+2.*atan1
+        !psimk=2*LOG(0.5*(1+X))+LOG(0.5*(1+X*X))-2.*ATAN(X)+2.*ATAN(1.)
+        !psimk=2.*LOG(0.5*(1+X))+LOG(0.5*(1+X*X))-2.*ATAN(X)+2.*atan1
         psimk=two*LOG(0.5_kind_phys*(one+X))+LOG(0.5_kind_phys*(one+X*X))-two*ATAN(X)+two*atan1
 
         ym=(one-ten*zolf)**p333
@@ -1713,7 +1713,7 @@ end function
 
         nzol = int(-zolf*100.)
         rzol = -zolf*100. - nzol
-        if(nzol+1 .lt. 1000)then
+        if(nzol >= 0 .and. nzol+1 .lt. 1000)then
            psim_unstable = psim_unstab(nzol) + rzol*(psim_unstab(nzol+1)-psim_unstab(nzol))
         else
            if (psi_opt == 0) then
@@ -1733,7 +1733,7 @@ end function
 
         nzol = int(-zolf*100.)
         rzol = -zolf*100. - nzol
-        if(nzol+1 .lt. 1000)then
+        if(nzol >= 0 .and. nzol+1 .lt. 1000)then
            psih_unstable = psih_unstab(nzol) + rzol*(psih_unstab(nzol+1)-psih_unstab(nzol))
         else
            if (psi_opt == 0) then
