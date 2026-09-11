@@ -13,11 +13,11 @@ OBJS = \
 	module_sf_mynnsfc_driver.o
 
 mynnsfc: $(OBJS)
-	ar -ru ./../../libphys.a $(OBJS)
+	ar -ru ./../../../libphys.a $(OBJS)
 
 # DEPENDENCIES:
 module_sf_mynnsfc_common.o: \
-	../../mpas_atmphys_constants.o
+	../../../mpas_atmphys_constants.o
 
 module_sf_mynnsfc_land.o: \
 	module_sf_mynnsfc_common.o
@@ -42,7 +42,7 @@ clean:
 
 .F90.o:
 ifeq "$(GEN_F90)" "true"
-	$(FC) $(FFLAGS) -c $*.f90 $(FCINCLUDES) -I../.. -I../../physics_wrf -I../../physics_mmm -I../../../../framework -I../../../../external/esmf_time_f90
+	$(FC) $(FFLAGS) -c $*.f90 $(FCINCLUDES) -I../../.. -I../../../physics_wrf -I../../../physics_mmm -I../../../../../framework -I../../../../../external/esmf_time_f90
 else
-	$(FC) $(CPPFLAGS) $(COREDEF) $(FFLAGS) -c $*.F90 $(CPPINCLUDES) $(FCINCLUDES) -I../.. -I../../physics_wrf -I../../physics_mmm -I../../../../framework -I../../../../external/esmf_time_f90
+	$(FC) $(CPPFLAGS) $(COREDEF) $(FFLAGS) -c $*.F90 $(CPPINCLUDES) $(FCINCLUDES) -I../../.. -I../../../physics_wrf -I../../../physics_mmm -I../../../../../framework -I../../../../../external/esmf_time_f90
 endif
