@@ -2068,7 +2068,7 @@ end subroutine mynnsfc_water
 
         nzol = int(-zolf*100.)
         rzol = -zolf*100. - nzol
-        if(nzol+1 .lt. 1000)then
+        if(nzol >= 0 .and. nzol+1 .lt. 1000)then
            psim_unstable = psim_unstab(nzol) + rzol*(psim_unstab(nzol+1)-psim_unstab(nzol))
         else
            if (psi_opt == 0) then
@@ -2088,7 +2088,7 @@ end subroutine mynnsfc_water
 
         nzol = int(-zolf*100.)
         rzol = -zolf*100. - nzol
-        if(nzol+1 .lt. 1000)then
+        if(nzol >= 0 .and. nzol+1 .lt. 1000)then
            psih_unstable = psih_unstab(nzol) + rzol*(psih_unstab(nzol+1)-psih_unstab(nzol))
         else
            if (psi_opt == 0) then
