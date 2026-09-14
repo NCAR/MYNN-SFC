@@ -122,7 +122,14 @@
         spp_pbl  , pattern_spp_pbl     ,                                   &
         sf_mynn_sfcflux_water          ,                                   &
         sf_mynn_sfcflux_land           , shalwater_z0        ,             &
-        isfflx   , restart  , cycling  , initflag , flag_iter, flagc_lsm , &
+        isfflx   , restart  , cycling  , initflag , flag_iter,             &
+#if (defined(mpas))
+        flagc_lsm,                                                         &
+#elif (EM_CORE == 1)
+        flag_lsm ,                                                         &
+#else
+        flag_lsm ,                                                         &
+#endif
         !model information
         itimestep,                                                         &
         ids      , ide      , jds      , jde      , kds      , kde       , &
@@ -224,9 +231,17 @@
  integer,intent(in),optional:: sf_mynn_sfcflux_water
  integer,intent(in),optional:: sf_mynn_sfcflux_land
  integer,intent(in),optional:: shalwater_z0
- integer:: flag_lsm !local in mpas, which uses characters
+ 
+#if (defined(mpas))
+ integer:: flag_lsm      !local variable, does not exist in mpas
+ character(len=*),intent(in),optional::flagc_lsm !exists in mpas, not in wrf
+#elif (EM_CORE == 1)
+ integer,intent(in),optional:: flag_lsm
+#else
+ integer,intent(in),optional:: flag_lsm
+#endif
  integer,parameter:: lsm_ruc=3
- character(len=*),intent(in),optional::flagc_lsm
+ 
  integer,intent(in),optional:: spp_pbl
  integer,intent(in),optional:: ivegsrc
  integer,intent(inout),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
@@ -352,6 +367,7 @@
  errflg = 0
  iter   = 1 !ccpp variable
 
+#if (defined(mpas))
  !convert character control flag to integer
  if (trim(flagc_lsm) .eq. 'sf_noaa') then
     flag_lsm = 1
@@ -362,7 +378,8 @@
  else
     flag_lsm = 4
  endif
-
+#endif
+ 
  !cycling flag is not in WRF, use local variable:
  if (present(cycling)) then
     loc_cycle = cycling
@@ -372,9 +389,8 @@
 
  if (debug_driver > 0) then
     print*,"=======in beginning of mynn sfc driver=============="
-    print*,"flagc_lsm=",trim(flagc_lsm)," flag_lsm=",flag_lsm
-    print*,"cycling=",cycling," loc_cycle=",loc_cycle
-    print*,"itimestep=",itimestep," restart=",restart
+    print*,"itimestep=",itimestep," flag_lsm=",flag_lsm
+    print*,"restart=",restart," cycling=",loc_cycle
  endif
     
  if (itimestep==1 .and. (.not.(restart) .or. .not.(loc_cycle))) then
