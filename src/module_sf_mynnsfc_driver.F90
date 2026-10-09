@@ -332,7 +332,6 @@
     cpm,    &
     chs2,   &
     cqs2,   &
-    cqs,    &
     chs,    &
     ch,     &
     flhc,   &
@@ -342,7 +341,8 @@
     br,     &
     psim,   &
     psih
-
+ real(kind_phys),intent(out),dimension(ims:ime,jms:jme),optional:: &
+    cqs
 !--- local variables and arrays:
  integer:: i,j,k,vegtype_1,iter,loc_z0_type,ncalls
  logical:: loc_redrag,loc_iter,loc_cycle
@@ -482,7 +482,6 @@
        cpm_1    = cpm(i,j)
        chs2_1   = chs2(i,j)
        cqs2_1   = cqs2(i,j)
-       cqs_1    = cqs(i,j)
        chs_1    = chs(i,j)
        ch_1     = ch(i,j)
        flhc_1   = flhc(i,j)
@@ -729,7 +728,9 @@
        cpm(i,j)    = cpm_1
        chs2(i,j)   = chs2_1
        cqs2(i,j)   = cqs2_1
-       cqs(i,j)    = cqs_1
+       if (present(cqs)) then
+         cqs(i,j)    = cqs_1
+       endif
        chs(i,j)    = chs_1
        ch(i,j)     = ch_1
        flhc(i,j)   = flhc_1
