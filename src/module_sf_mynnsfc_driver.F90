@@ -61,9 +61,10 @@
                                              psih_stab,psih_unstab
 
  private
- public:: mynnsfc_driver, &
-          mynnsfc_init,   &
-          mynnsfclay_finalize      
+ public:: mynnsfc_driver,      &
+          mynnsfc_init,        &
+          mynnsfclay_finalize, &
+          psi_init
 
  contains
   
@@ -123,6 +124,8 @@
         sf_mynn_sfcflux_water          ,                                   &
         sf_mynn_sfcflux_land           , shalwater_z0        ,             &
         isfflx   , restart  , cycling  , initflag , flag_iter,             &
+        ! optional ccpp fields
+        dry , wet , icy   ,                                                &
 #if (defined(mpas))
         flagc_lsm,                                                         &
 #elif (EM_CORE == 1)
@@ -244,16 +247,17 @@
  
  integer,intent(in),optional:: spp_pbl
  integer,intent(in),optional:: ivegsrc
- integer,intent(inout),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
- logical,intent(inout),optional:: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
- logical,intent(inout),optional:: flag_iter
- real,   intent(in)::xice_threshold
+ integer,intent(in),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
+ logical,intent(in),optional:: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
+ logical,intent(in),optional:: flag_iter
+ real,   intent(in),optional:: xice_threshold ! not needed in CCPP
  
  !Input data needed for GFS-related options
  integer, dimension(ims:ime,jms:jme), optional, intent(in) :: vegtype
  real(kind_phys),dimension(ims:ime,jms:jme),optional,intent(in):: &
       sigmaf,shdmax,z0pert,ztpert
-
+ logical,dimension(ims:ime,jms:jme),optional,intent(in):: &
+      dry,wet,icy
  !threshold for choosing snow/ice points (In WRF, snowh is in meters)
  real,parameter:: snow_thresh = 0.05 !5 cm
 
@@ -281,9 +285,9 @@
     tsk,    &
     psfcpa, &
     snowh,  &
-    xice,   &
     dx
-
+ real(kind_phys),intent(in),dimension(ims:ime,jms:jme), optional:: &
+    xice                        ! not needed in CCPP
  !--- output arguments:
  character(len=*), intent(inout) :: errmsg
  integer,          intent(inout) :: errflg
@@ -328,7 +332,6 @@
     cpm,    &
     chs2,   &
     cqs2,   &
-    cqs,    &
     chs,    &
     ch,     &
     flhc,   &
@@ -338,13 +341,15 @@
     br,     &
     psim,   &
     psih
-
+ real(kind_phys),intent(out),dimension(ims:ime,jms:jme),optional:: &
+    cqs
 !--- local variables and arrays:
  integer:: i,j,k,vegtype_1,iter,loc_z0_type,ncalls
  logical:: loc_redrag,loc_iter,loc_cycle
  real(kind_phys),dimension(ims:ime,jms:jme):: wstar
  real(kind_phys),dimension(ims:ime,jms:jme):: qstar
-
+!--- optional ccpp flags:
+ logical:: do_land, do_water, do_ice
 !intermediate single-point variables will be *_1
  real(kind_phys) :: mavail_1,pblh_1,xland_1,tsk_1,psfcpa_1,           &
                      snowh_1,dx_1,lakemask_1,wat_depth_1,xice_1
@@ -447,7 +452,9 @@
        mavail_1 = mavail(i,j)
        pblh_1   = pblh(i,j)
        xland_1  = xland(i,j)
-       xice_1   = xice(i,j)
+       if(present(xice)) then
+         xice_1   = xice(i,j)
+       endif
        tsk_1    = tsk(i,j)
        psfcpa_1 = psfcpa(i,j)
        snowh_1  = snowh(i,j)
@@ -475,7 +482,6 @@
        cpm_1    = cpm(i,j)
        chs2_1   = chs2(i,j)
        cqs2_1   = cqs2(i,j)
-       cqs_1    = cqs(i,j)
        chs_1    = chs(i,j)
        ch_1     = ch(i,j)
        flhc_1   = flhc(i,j)
@@ -508,22 +514,22 @@
           tsurf_1  = tsk_1
        endif
        if(present(sigmaf)) then
-          sigmaf_1  = sigmaf(i,j)	
+          sigmaf_1  = sigmaf(i,j)
        else
           sigmaf_1  = zero
        endif
        if(present(shdmax)) then
-          shdmax_1  = shdmax(i,j)	
+          shdmax_1  = shdmax(i,j)
        else
           shdmax_1  = zero
        endif
        if(present(z0pert)) then
-          z0pert_1  = z0pert(i,j)	
+          z0pert_1  = z0pert(i,j)
        else
           z0pert_1  = zero
        endif
        if(present(ztpert)) then
-          ztpert_1  = ztpert(i,j)	
+          ztpert_1  = ztpert(i,j)
        else
           ztpert_1  = zero
        endif
@@ -555,13 +561,21 @@
        if (debug_driver > 0) then
           print*,"=== in mynnsfc_driver, prior to component calls ==="
           print*,"itimestep=",itimestep," i=",i," j=",j
-          print*,"xland=",xland_1," xice=",xice_1," znt=",znt_1
-          print*,"snowh=",snowh_1," xice_threshold=",xice_threshold
+          print*,"xland=",xland_1," znt=",znt_1, "snowh=",snowh_1
+          if (present(xice) .and. present(xice_threshold)) then
+            print*," xice=",xice_1," xice_threshold=",xice_threshold
+          endif
           ncalls=0
        endif
 
-       if (((xland_1-1.5) .lt. zero) .and. (snowh_1 .lt. snow_thresh)) then !5 cm threshold for binary snow/no-snow 
+       if (present(dry)) then
+        do_land=dry(i,j)
+       else
+        do_land=(((xland_1-1.5) .lt. zero) .and. (snowh_1 .lt. snow_thresh))
+       endif
        !if ((xland_1-1.5) .lt. zero) then !alternative - best for fractional landuse/snow, but unnecessarily duplicative for dominate types 
+
+       if (do_land) then
           if (debug_driver > 0) then
              print*,"--> calling mynnsfc_land..."
              ncalls=ncalls+1
@@ -603,8 +617,15 @@
                     )
        endif
 
+       if (present(wet)) then
+        do_water=wet(i,j)
+       else
+        do_water=((xland_1-1.5) .ge. zero)
+       endif
+
        !if (((xland_1-1.5) .ge. zero) .or. ((xice_1 .gt. zero) .and. (xice_1 .lt. one))) then
-       if ((xland_1-1.5) .ge. zero) then !best for fractional landuse/snow
+       !if ((xland_1-1.5) .ge. zero) then !best for fractional landuse/snow
+       if (do_water) then
           if (debug_driver > 0) then
              print*,"--> calling mynnsfc_water..."
              ncalls=ncalls+1
@@ -647,8 +668,14 @@
                     )
        endif
 
-       if ((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
-            (xice_1.ge.xice_threshold .and. xice_1.lt.one)) then                !partial seaice
+       if (present(icy)) then
+        do_ice=icy(i,j)
+       else
+        do_ice=((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
+            (xice_1.ge.xice_threshold .and. xice_1.lt.one))                          !partial seaice
+       endif
+
+       if (do_ice) then
           if (debug_driver > 0) then
              print*,"--> calling mynnsfc_ice..."
              ncalls=ncalls+1
@@ -701,7 +728,9 @@
        cpm(i,j)    = cpm_1
        chs2(i,j)   = chs2_1
        cqs2(i,j)   = cqs2_1
-       cqs(i,j)    = cqs_1
+       if (present(cqs)) then
+         cqs(i,j)    = cqs_1
+       endif
        chs(i,j)    = chs_1
        ch(i,j)     = ch_1
        flhc(i,j)   = flhc_1
