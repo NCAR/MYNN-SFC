@@ -40,12 +40,6 @@ module module_sf_mynnsfc_common
   ! real(kind_phys),parameter:: svp1  = 0.6112 !(kPa)
   ! real(kind_phys),parameter:: svp2  = 17.67  !(dimensionless)
   ! real(kind_phys),parameter:: svp3  = 29.65  !(K)
-  real(kind_phys),parameter:: wfa_max = 800e6   !kg-1
-  real(kind_phys),parameter:: wfa_min = 1e6     !kg-1
-  real(kind_phys),parameter:: ifa_max = 300e6   !kg-1
-  real(kind_phys),parameter:: ifa_min = 0.0     !kg-1
-  real(kind_phys),parameter:: wfa_ht  = 2000.   !meters
-  real(kind_phys),parameter:: ifa_ht  = 10000.  !meters
    
   ! To be derived in the init routine
   real(kind_phys):: ep_3    !<= 1.-ep_2 != 0.378
