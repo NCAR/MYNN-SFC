@@ -180,8 +180,8 @@ real(kind_phys), intent(in) ::  rstoch_1
 !-----------------------------
 !output
 !-----------------------------
-real(kind_phys), intent(out)::  u10,v10,th2,t2,q2
-real(kind_phys), intent(out)::  wstar
+real(kind_phys), intent(inout)::  u10,v10,th2,t2,q2
+real(kind_phys), intent(inout)::  wstar
 
 !-----------------------------
 !in/out

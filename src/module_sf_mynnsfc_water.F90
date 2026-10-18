@@ -197,8 +197,8 @@ real(kind_phys), intent(in) ::  rstoch_1
 !-----------------------------
 !output
 !-----------------------------
-real(kind_phys), intent(out)::  u10,v10,th2,t2,q2
-real(kind_phys), intent(out)::  wstar
+real(kind_phys), intent(inout)::  u10,v10,th2,t2,q2
+real(kind_phys), intent(inout)::  wstar
 
 !-----------------------------
 !in/out
@@ -747,6 +747,8 @@ if ( flag_iter ) then
          ! compute surface moisture flux:
          !----------------------------------
          !qfx=flqc*(qsfcmr-qvmr)
+         write(*,*)"flqc=", flqc,"qsfc=",qsfc,"qv_1=",qv_1,"karman=",karman,&
+           "psit=",psit,"thsk=",thsk,"th_1=",th_1
          qfx=flqc*(qsfc-qv_1)
          qfx=max(qfx,-0.02_kind_phys)      !allows small neg qfx
          lh=xlv*qfx
@@ -851,6 +853,7 @@ if (compute_diag) then
           th2=thsk + two*(th_1-thsk)/za
       endif
       t2=th2*(psfcpa/100000.)**rovcp
+      write(*,*)"t2=",t2,"th2=",th2,"psfcpa=",psfcpa,"rovcp=",rovcp
 
       q2=qsfc+(qv_1-qsfc)*psiq2/psiq
       q2= max(q2, min(qsfc, qv_1))

@@ -122,7 +122,7 @@
         spp_pbl  , pattern_spp_pbl     ,                                   &
         sf_mynn_sfcflux_water          ,                                   &
         sf_mynn_sfcflux_land           , shalwater_z0        ,             &
-        isfflx   , restart  , cycling  , initflag , flag_iter,             &
+        isfflx   , restart  , cycling  , initflag , iter, flag_iter,       &
         ! optional ccpp fields
         dry , wet , icy   ,                                                &
 #if (defined(mpas))
@@ -233,30 +233,34 @@
  integer,intent(in),optional:: sf_mynn_sfcflux_water
  integer,intent(in),optional:: sf_mynn_sfcflux_land
  integer,intent(in),optional:: shalwater_z0
- 
 #if (defined(mpas))
  integer:: flag_lsm      !local variable, does not exist in mpas
  character(len=*),intent(in),optional::flagc_lsm !exists in mpas, not in wrf
+ logical, parameter:: dry_mixing_ratio = .true.
 #elif (EM_CORE == 1)
  integer,intent(in),optional:: flag_lsm
+ logical, parameter:: dry_mixing_ratio = .true.
 #else
  integer,intent(in),optional:: flag_lsm
+ logical, parameter:: dry_mixing_ratio = .false.
 #endif
  integer,parameter:: lsm_ruc=3
+
  
  integer,intent(in),optional:: spp_pbl
  integer,intent(in),optional:: ivegsrc
  integer,intent(in),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
  logical,intent(in),optional:: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
  logical,intent(in),optional:: flag_iter
+ integer,intent(in),optional:: iter
  real,   intent(in),optional:: xice_threshold ! not needed in CCPP
  
  !Input data needed for GFS-related options
  integer, dimension(ims:ime,jms:jme), optional, intent(in) :: vegtype
  real(kind_phys),dimension(ims:ime,jms:jme),optional,intent(in):: &
       sigmaf,shdmax,z0pert,ztpert
- logical,dimension(ims:ime,jms:jme),optional,intent(in):: &
-      dry,wet,icy
+ logical, dimension(ims:ime,jms:jme), optional,intent(in)::       &
+      dry, wet, icy
  !threshold for choosing snow/ice points (In WRF, snowh is in meters)
  real,parameter:: snow_thresh = 0.05 !5 cm
 
@@ -291,7 +295,7 @@
  character(len=*), intent(inout) :: errmsg
  integer,          intent(inout) :: errflg
 
- real(kind_phys),intent(out),dimension(ims:ime,jms:jme):: &
+ real(kind_phys),intent(inout),dimension(ims:ime,jms:jme)::        &
     u10,   &
     v10,   &
     th2,   &
@@ -299,23 +303,22 @@
     q2
 
  real(kind_phys),intent(out),dimension(ims:ime,jms:jme),optional:: &
-    cm,    &
     ck,    &
     cka,   &
     cd,    &
     cda,   &
-    ustm,  &
-    fm,    &
-    fh,    &
-    fm10,  &
-    fh2
+    ustm
 
  !--- inout arguments:
   real(kind_phys),intent(inout),dimension(ims:ime,jms:jme),optional:: &
     hflx,   &
     qflx,   &
-    stress
-  
+    stress, &
+    fm,     &
+    fh,     &
+    fm10,   &
+    fh2,    &
+    cm
  real(kind_phys),intent(inout),dimension(ims:ime,jms:jme):: &
     pblh,   &
     hfx,    &
@@ -343,8 +346,8 @@
  real(kind_phys),intent(out),dimension(ims:ime,jms:jme),optional:: &
     cqs
 !--- local variables and arrays:
- integer:: i,j,k,vegtype_1,iter,loc_z0_type,ncalls
- logical:: loc_redrag,loc_iter,loc_cycle
+ integer:: i,j,k,vegtype_1,loc_z0_type,ncalls,loc_iter
+ logical:: loc_redrag,loc_cycle,ccpp_iter
  real(kind_phys),dimension(ims:ime,jms:jme):: wstar
  real(kind_phys),dimension(ims:ime,jms:jme):: qstar
 !--- optional ccpp flags:
@@ -369,7 +372,11 @@
 !-----------------------------------------------------------------------------------------------------------------
  errmsg = ' '
  errflg = 0
- iter   = 1 !ccpp variable
+ ! iter   = 1 !ccpp variable
+
+ do_land  = .false.
+ do_water = .false.
+ do_ice   = .false.
 
 #if (defined(mpas))
  !convert character control flag to integer
@@ -436,8 +443,13 @@
        ust_1    = ust(i,j)
        stress_1 = ust_1**2
        mol_1    = mol(i,j)
-       qsfc_1   = qsfc(i,j)/(one+qvmr)  !convert to specific humidity
-       qgh_1    = qgh(i,j)/(one+qvmr)   !convert to specific humidity
+       if (dry_mixing_ratio) then
+          qsfc_1   = qsfc(i,j)/(one+qvmr)  !convert to specific humidity
+          qgh_1    = qgh(i,j)/(one+qvmr)   !convert to specific humidity
+       else
+          qsfc_1   = qsfc(i,j)             !coming in as specific humidity from CCPP
+          qgh_1    = qgh(i,j)
+       endif
        qstar_1  = qstar(i,j)
 
        !spp - input only
@@ -491,19 +503,13 @@
        psim_1   = psim(i,j)
        psih_1   = psih(i,j)
 
-       !output arguments:
-       u10_1    = zero
-       v10_1    = zero
-       th2_1    = zero
-       t2_1     = zero
-       q2_1     = zero
-       wstar_1  = zero
-
        !optional configuration inputs:
        loc_redrag = .false.
        if(present(redrag)) loc_redrag = redrag  !CCPP option from GFS
-       loc_iter   = .true.
-       if(present(flag_iter)) loc_iter = flag_iter !CCPP option. In WRF or MPAS, just set = True 
+       loc_iter   = 1
+       if(present(iter)) loc_iter = iter
+       ccpp_iter  = .true.
+       if(present(flag_iter)) ccpp_iter = flag_iter !CCPP option. In WRF or MPAS, just set = True
        loc_z0_type= 0
        if(present(sfc_z0_type)) loc_z0_type = sfc_z0_type !CCPP option from GFS
        !optional array inputs:
@@ -537,7 +543,24 @@
        else
           vegtype_1  = 1
        endif
-       
+
+       !output arguments:
+       if (iter == 1) then
+          u10_1    = zero
+          v10_1    = zero
+          th2_1    = zero
+          t2_1     = zero
+          q2_1     = zero
+          wstar_1  = zero
+       else
+          u10_1    = u10(i,j)
+          v10_1    = v10(i,j)
+          th2_1    = th2(i,j)
+          t2_1     = t2(i,j)
+          q2_1     = q2(i,j)*(one-qv_1)
+          wstar_1  = zero
+       endif
+
        !optional output arguments:
        if(present(ck) .and. present(cka) .and. present(cd) .and. present(cda)) then
           ck_1  = zero
@@ -550,11 +573,18 @@
        else
           ustm_1 = zero
        endif
+
+       !ccpp
        if(present(fm) .and. present(fh) .and. present(fm10) .and. present(fh2)) then
-          fm_1     = zero  !ccpp
-          fh_1     = zero  !ccpp
-          fm10_1   = zero  !ccpp
-          fh2_1    = zero  !ccpp
+          fm_1     = fm(i,j)
+          fh_1     = fh(i,j)
+          fm10_1   = fm10(i,j)
+          fh2_1    = fh2(i,j)
+       else
+          fm_1     = zero
+          fh_1     = zero
+          fm10_1   = zero
+          fh2_1    = zero
        endif
 
        if (debug_driver > 0) then
@@ -569,7 +599,7 @@
 
        if (present(dry)) then
         do_land=dry(i,j)
-       else
+       else if (.not. present(wet) .and. .not. present(icy)) then
         do_land=(((xland_1-1.5) .lt. zero) .and. (snowh_1 .lt. snow_thresh))
        endif
        !if ((xland_1-1.5) .lt. zero) then !alternative - best for fractional landuse/snow, but unnecessarily duplicative for dominate types 
@@ -581,8 +611,8 @@
           endif
           call mynnsfc_land( &
                  !model info
-                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
-                 dx       = dx_1      , xland    = xland_1   , iter     = iter     ,                         &
+                 i        = i         , j        = j         , itimestep= itimestep, flag_iter=ccpp_iter,    &
+                 dx       = dx_1      , xland    = xland_1   , iter     = loc_iter     ,                     &
                  !3d input - transformed to single point
                  u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
                  p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
@@ -618,12 +648,11 @@
 
        if (present(wet)) then
         do_water=wet(i,j)
-       else
+       else if (.not. present(dry) .and. .not. present(icy)) then
         do_water=((xland_1-1.5) .ge. zero)
        endif
 
        !if (((xland_1-1.5) .ge. zero) .or. ((xice_1 .gt. zero) .and. (xice_1 .lt. one))) then
-       !if ((xland_1-1.5) .ge. zero) then !best for fractional landuse/snow
        if (do_water) then
           if (debug_driver > 0) then
              print*,"--> calling mynnsfc_water..."
@@ -631,8 +660,8 @@
           endif
           call mynnsfc_water( &
                  !model info
-                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
-                 dx       = dx_1      , xland    = xland_1   , iter     = iter     , lakemask  = lakemask_1, &
+                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = ccpp_iter,  &
+                 dx       = dx_1      , xland    = xland_1   , iter     = loc_iter , lakemask  = lakemask_1, &
                  wat_depth=wat_depth_1,                                                                      &
                  !3d input - transformed to single point
                  u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
@@ -669,7 +698,7 @@
 
        if (present(icy)) then
         do_ice=icy(i,j)
-       else
+       else if (.not. present(dry) .and. .not. present(wet)) then
         do_ice=((((xland_1-1.5) .lt. zero) .and. (snowh_1 .ge. snow_thresh)) .or. &  !land snow/ice
             (xice_1.ge.xice_threshold .and. xice_1.lt.one))                          !partial seaice
        endif
@@ -681,8 +710,8 @@
           endif
           call mynnsfc_ice( &
                 !model info
-                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = loc_iter  , &
-                 dx       = dx_1      , xland    = xland_1   , iter     = iter     ,                         &
+                 i        = i         , j        = j         , itimestep= itimestep,    flag_iter=ccpp_iter, &
+                 dx       = dx_1      , xland    = xland_1   , iter     = loc_iter     ,                     &
                  !3d input - transformed to single point
                  u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
                  p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
@@ -719,8 +748,13 @@
        lh(i,j)     = lh_1/(one-qv_1)   !mixing ratio flux
        mol(i,j)    = mol_1
        rmol(i,j)   = rmol_1
-       qsfc(i,j)   = qsfc_1/(one-qv_1) !mixing ratio
-       qgh(i,j)    = qgh_1/(one-qv_1)  !mixing ratio
+       if (dry_mixing_ratio) then
+          qsfc(i,j)   = qsfc_1/(one-qv_1) !mixing ratio
+          qgh(i,j)    = qgh_1/(one-qv_1)  !mixing ratio
+       else
+          qsfc(i,j)   = qsfc_1
+          qgh(i,j)    = qgh_1
+       endif
        znt(i,j)    = znt_1
        zol(i,j)    = zol_1
        ust(i,j)    = ust_1
@@ -750,8 +784,10 @@
        qstar(i,j)  = qstar_1
 
        !optional output arguments, mostly for ccpp:
-       if(present(hflx))hflx(i,j)= hfx_1/(cp*rho_1)
-       if(present(qflx))qflx(i,j)= qfx_1/rho_1
+       if (ccpp_iter) then ! keep hflx and qflx unchanged from 1st iter in CCPP
+          if(present(hflx))hflx(i,j)= hfx_1/(cp*rho_1)
+          if(present(qflx))qflx(i,j)= qfx_1/rho_1
+       endif
        if(present(ck) .and. present(cka) .and. present(cd) .and. present(cda)) then
           ck(i,j)  = ck_1
           cka(i,j) = cka_1
