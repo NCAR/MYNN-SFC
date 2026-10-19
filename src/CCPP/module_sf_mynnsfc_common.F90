@@ -51,5 +51,8 @@ module module_sf_mynnsfc_common
   real(kind_phys):: xlvcp  !<= xlv/cp
   real(kind_phys):: g_inv  !<= 1./grav
   real(kind_phys):: ep_1    !Rv/Rd-1
-
+!-------------------------------------------------------
+!-------     commonly used numbers     -----------------
+!-------------------------------------------------------
+ real(kind_phys),parameter:: zero   = 0.0
 end module module_sf_mynnsfc_common
