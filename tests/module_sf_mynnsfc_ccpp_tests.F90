@@ -204,7 +204,7 @@ module module_sf_mynnsfc_ccpp_tests
                  sigmaf=sigmaf,vegtype=vegtype,shdmax=shdmax,ivegsrc=ivegsrc,     &  !intent(in)
                  z0pert=z0pert,ztpert=ztpert,                                     &  !intent(in)
                  redrag=redrag,sfc_z0_type=sfc_z0_type,                           &  !intent(in)
-                 itimestep=itimestep,flag_iter=flag_iter,                         &
+                 itimestep=itimestep,                                             &
                  restart=flag_restart,dry=dry(1,1),wet=wet(1,1),icy=icy(1,1),     &  !intent(in)
                  tsk=tskin_lnd, tsurf=tsurf_lnd, qsfc=qsfc_lnd, snowh=snowh_lnd,  &
                  znt=znt_lnd, ust=ust_lnd,cm=cm_lnd,ch=ch_lnd, br=rb_lnd,         &  !intent(inout)
@@ -231,7 +231,7 @@ module module_sf_mynnsfc_ccpp_tests
                  sigmaf=sigmaf,vegtype=vegtype,shdmax=shdmax,ivegsrc=ivegsrc,     &  !intent(in)
                  z0pert=z0pert,ztpert=ztpert,                                     &  !intent(in)
                  redrag=redrag,sfc_z0_type=sfc_z0_type,                           &  !intent(in)
-                 itimestep=itimestep,flag_iter=flag_iter,                         &
+                 itimestep=itimestep,                                             &
                  restart=flag_restart,dry=dry(1,1),wet=wet(1,1),icy=icy(1,1),     &  !intent(in)
                  tsk=tskin_wat, tsurf=tsurf_wat, qsfc=qsfc_wat, snowh=snowh_wat,  &
                  znt=znt_wat, ust=ust_wat,cm=cm_wat,ch=ch_wat, br=rb_wat,         &  !intent(inout)
@@ -258,7 +258,7 @@ module module_sf_mynnsfc_ccpp_tests
                  sigmaf=sigmaf,vegtype=vegtype,shdmax=shdmax,ivegsrc=ivegsrc,     &  !intent(in)
                  z0pert=z0pert,ztpert=ztpert,                                     &  !intent(in)
                  redrag=redrag,sfc_z0_type=sfc_z0_type,                           &  !intent(in)
-                 itimestep=itimestep,flag_iter=flag_iter,                         &
+                 itimestep=itimestep,                                             &
                  restart=flag_restart,dry=dry(1,1),wet=wet(1,1),icy=icy(1,1),     &  !intent(in)
                  tsk=tskin_ice, tsurf=tsurf_ice, qsfc=qsfc_ice, snowh=snowh_ice,  &
                  znt=znt_ice, ust=ust_ice,cm=cm_ice,ch=ch_ice, br=rb_ice,         &  !intent(inout)
