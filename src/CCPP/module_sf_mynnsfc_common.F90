@@ -40,7 +40,7 @@ module module_sf_mynnsfc_common
   ! real(kind_phys),parameter:: svp1  = 0.6112 !(kPa)
   ! real(kind_phys),parameter:: svp2  = 17.67  !(dimensionless)
   ! real(kind_phys),parameter:: svp3  = 29.65  !(K)
-   
+
   ! To be derived in the init routine
   real(kind_phys):: ep_3    !<= 1.-ep_2 != 0.378
   real(kind_phys):: gtr    !<= grav/tref

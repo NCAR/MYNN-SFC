@@ -119,7 +119,8 @@ CONTAINS
 !! diagnostics, as was needed in WRF, but these are skipped for FV3.
 SUBROUTINE mynnsfc_land( &
        !model info
-       flag_iter   , itimestep   , i           , j           , &
+       !flag_iter   , itimestep   , i           , j           , &
+       itimestep   , i           , j           , &
        dx          , xland       ,                             &
        !3d input - transformed to single point
        u_1         , v_1         , t_1         , qv_1        , &
@@ -173,7 +174,7 @@ integer, intent(in) :: sfc_z0_type ! option for calculating surface roughness le
 integer, intent(in) :: vegtype
 logical, intent(in) :: compute_flux,compute_diag
 logical, intent(in) :: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
-logical, intent(in) :: flag_iter
+! logical, intent(in) :: flag_iter
 
 !-----------------------------
 ! input stability function tables
@@ -193,8 +194,8 @@ real(kind_phys), intent(in) ::  rstoch_1
 !-----------------------------
 !output
 !-----------------------------
-real(kind_phys), intent(inout)::  u10,v10,th2,t2,q2
-real(kind_phys), intent(inout)::  wstar
+real(kind_phys), intent(out)::  u10,v10,th2,t2,q2
+real(kind_phys), intent(out)::  wstar
 
 !-----------------------------
 !in/out
@@ -290,7 +291,7 @@ endif
 psfc=psfcpa/1000._kind_phys
 
 !tgs - do computations if flag_iter = .true.
-if ( flag_iter ) then
+! if ( flag_iter ) then
    if (itimestep == 1) then
       if (lsm == lsm_ruc .and. qsfc > zero) then
          qsfcmr=qsfc/(one-qsfc)                !mixing ratio
@@ -317,7 +318,7 @@ if ( flag_iter ) then
          qsfcmr=qsfc/(one-qsfc)                !mixing ratio
       endif
    endif
-endif ! flag_iter
+! endif ! flag_iter
 
 !qgh uses values at the lowest model level--not surface
 e1    = svp1*exp(svp2*(t_1-svpt0)/(t_1-svp3))
@@ -326,7 +327,7 @@ qgh   = ep2*e1/(pl-e1)      !mixing ratio
 
 qvmr  = qv_1/(one-qv_1)        !convert to mixing ratio
 thcon = (100000._kind_phys/psfcpa)**rovcp
-if (flag_iter) then
+! if (flag_iter) then
    ! define skin temperatures 
    tsk = tskin
    !tsk = 0.5 * (tsurf+tskin)
@@ -335,7 +336,7 @@ if (flag_iter) then
    thvsk = thsk*(one+ep1*qsfc)
    if (thvsk < 160. .or. thvsk > 390.) &
       print *,'thvsk',itimestep,i,thvsk,thsk,tsurf,tskin,qsfc
-endif ! flag_iter
+! endif ! flag_iter
 
 ! convert lowest layer temperature to potential temperature:
 th_1  = t_1*(100000._kind_phys/p_1)**rovcp     !(theta, K)
@@ -354,7 +355,7 @@ cpm   = cp*(one+0.84_kind_phys*qv_1)
 !hfx=hflx*rho_1*cp
 
 
-if (flag_iter) then
+! if (flag_iter) then
    ! dh* 20200401 - note. a weird bug in intel 18 on hera prevents using the
    ! normal -o2 optimization in release mode for this file. not reproducible
    ! by every user, the bug manifests itself in the resulting wind speed wspd
@@ -420,7 +421,7 @@ if (flag_iter) then
    !    if(mol.lt.0.)br=min(br,0.0)
    !endif
 
-endif ! flag_iter
+! endif ! flag_iter
 
 !--------------------------------------------------------------------
 !--------------------------------------------------------------------
@@ -428,7 +429,7 @@ endif ! flag_iter
 !--------------------------------------------------------------------
 !--------------------------------------------------------------------
 
-if (flag_iter) then
+! if (flag_iter) then
 
    !compute kinematic viscosity (m2/s) andreas (1989) crrel rep. 89-11
    !valid between -173 and 277 degrees c.
@@ -674,7 +675,7 @@ if (flag_iter) then
    dqg=(qv_1-qsfc)*1000._kind_phys   !(kg/kg -> g/kg)
    qstar=karman*dqg/psiq/prt
 
-endif ! flag_iter
+! endif ! flag_iter
 
 if (debug_code >= 1) then
    if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
@@ -691,7 +692,7 @@ endif
 !----------------------------------------------------------
 !  compute surface heat and moisture fluxes
 !----------------------------------------------------------
-if (flag_iter) then
+! if (flag_iter) then
 
    if (isfflx .lt. 1) then
       qfx  = zero
@@ -777,12 +778,12 @@ if (flag_iter) then
 
    endif !end isfflx option
       
-endif ! flag_iter
+! endif ! flag_iter
 
 
 if (compute_diag) then
 
-   if (flag_iter) then
+   ! if (flag_iter) then
       !-----------------------------------------------------
       !compute diagnostics
       !-----------------------------------------------------
@@ -834,7 +835,7 @@ if (compute_diag) then
       q2= max(q2, min(qsfc, qv_1))
       q2= min(q2, 1.05*qv_1)
 
-   endif ! flag_iter
+   ! endif ! flag_iter
 
 endif ! end compute_diag
 

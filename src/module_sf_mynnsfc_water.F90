@@ -121,7 +121,8 @@ CONTAINS
 !! diagnostics, as was needed in WRF, but these are skipped for FV3.
   SUBROUTINE mynnsfc_water( &
        !model info
-       flag_iter   , itimestep   , i           , j           , &
+       !flag_iter   , itimestep   , i           , j           , &
+       itimestep   , i           , j           , &
        dx          , xland       , lakemask    , wat_depth   , &
        !3d input - transformed to single point
        u_1         , v_1         , t_1         , qv_1        , &
@@ -177,7 +178,7 @@ integer, intent(in) :: vegtype
 logical, intent(in) :: compute_flux
 logical, intent(in) :: compute_diag
 logical, intent(in) :: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
-logical, intent(in) :: flag_iter
+! logical, intent(in) :: flag_iter
 
 !-----------------------------
 ! input stability function tables
@@ -197,8 +198,8 @@ real(kind_phys), intent(in) ::  rstoch_1
 !-----------------------------
 !output
 !-----------------------------
-real(kind_phys), intent(inout)::  u10,v10,th2,t2,q2
-real(kind_phys), intent(inout)::  wstar
+real(kind_phys), intent(out)::  u10,v10,th2,t2,q2
+real(kind_phys), intent(out)::  wstar
 
 !-----------------------------
 !in/out
@@ -294,7 +295,7 @@ endif
 psfc=psfcpa/1000._kind_phys
 
 !tgs - do computations if flag_iter = .true.
-if ( flag_iter ) then
+! if ( flag_iter ) then
    tsk = tskin
    !saturation vapor pressure wrt water (bolton 1980)
    e1=svp1*exp(svp2*(tsk-svpt0)/(tsk-svp3))
@@ -304,7 +305,7 @@ if ( flag_iter ) then
    qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
    qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
    !if(qsfc>one.or.qsfc<0.) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
-endif ! flag_iter
+! endif ! flag_iter
 
 !qgh uses values at the lowest model level--not surface
 e1    = svp1*exp(svp2*(t_1-svpt0)/(t_1-svp3))
@@ -313,7 +314,7 @@ qgh   = ep2*e1/(pl-e1)      !mixing ratio
 
 qvmr  = qv_1/(one-qv_1)     !convert to mixing ratio
 thcon = (100000._kind_phys/psfcpa)**rovcp
-if (flag_iter) then
+! if (flag_iter) then
    ! define skin temperatures
    tsk = tskin
    !tsk = 0.5 * (tsurf+tskin)
@@ -324,7 +325,7 @@ if (flag_iter) then
       print *,"*** unreasonable skin temperatures"
       print *,'thvsk',itimestep,i,thvsk,thsk,tsurf,tskin,qsfc
    endif
-endif ! flag_iter
+! endif ! flag_iter
 
 ! convert lowest layer temperature to potential temperature:
 th_1  = t_1*(100000._kind_phys/p_1)**rovcp    !(Kelvin)
@@ -342,7 +343,7 @@ cpm   = cp*(one+0.84_kind_phys*qv_1)
 !hfx=hflx*rho_1*cp
 
 
-if (flag_iter) then
+! if (flag_iter) then
    wspd=sqrt(u_1*u_1 + v_1*v_1)
    dthvdz=(thv_1-thvsk)
    !--------------------------------------------------------
@@ -395,7 +396,7 @@ if (flag_iter) then
    !    IF(MOL.LT.0.)BR=MIN(BR,0.0)
    !ENDIF
 
-endif ! flag_iter
+! endif ! flag_iter
 
  1006   format(A,F7.3,A,f9.4,A,f9.5,A,f9.4)
  1007   format(A,F2.0,A,f6.2,A,f7.3,A,f7.2)
@@ -405,7 +406,7 @@ endif ! flag_iter
 !--- Begin iteration to calculate surface exchange coefficients
 !--------------------------------------------------------------------
 !--------------------------------------------------------------------
-if (flag_iter) then
+! if (flag_iter) then
 
    !COMPUTE KINEMATIC VISCOSITY (m2/s) Andreas (1989) CRREL Rep. 89-11
    !valid between -173 and 277 degrees C.
@@ -692,7 +693,7 @@ if (flag_iter) then
    dqg=(qv_1-qsfc)*1000.   !(kg/kg -> g/kg)
    qstar=karman*dqg/psiq/prt
  
-endif ! flag_iter
+! endif ! flag_iter
 
 
 if (debug_code >= 1) then
@@ -710,7 +711,7 @@ endif
 !----------------------------------------------------------
 !  COMPUTE SURFACE HEAT AND MOISTURE FLUXES
 !----------------------------------------------------------
-if ( flag_iter ) then
+! if ( flag_iter ) then
 
    if (isfflx .lt. 1) then
 
@@ -747,8 +748,6 @@ if ( flag_iter ) then
          ! compute surface moisture flux:
          !----------------------------------
          !qfx=flqc*(qsfcmr-qvmr)
-         write(*,*)"flqc=", flqc,"qsfc=",qsfc,"qv_1=",qv_1,"karman=",karman,&
-           "psit=",psit,"thsk=",thsk,"th_1=",th_1
          qfx=flqc*(qsfc-qv_1)
          qfx=max(qfx,-0.02_kind_phys)      !allows small neg qfx
          lh=xlv*qfx
@@ -805,12 +804,12 @@ if ( flag_iter ) then
  
    endif !end isfflx option
 
-endif ! flag_iter
+! endif ! flag_iter
 
 
 if (compute_diag) then
 
-   if ( flag_iter ) then
+   ! if ( flag_iter ) then
       !-----------------------------------------------------
       !COMPUTE DIAGNOSTICS
       !-----------------------------------------------------
@@ -859,7 +858,7 @@ if (compute_diag) then
       q2= max(q2, min(qsfc, qv_1))
       q2= min(q2, 1.05*qv_1)
 
-   endif ! flag_iter
+   ! endif ! flag_iter
 
 endif ! end compute_diag
 

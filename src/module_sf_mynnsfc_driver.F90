@@ -122,7 +122,7 @@
         spp_pbl  , pattern_spp_pbl     ,                                   &
         sf_mynn_sfcflux_water          ,                                   &
         sf_mynn_sfcflux_land           , shalwater_z0        ,             &
-        isfflx   , restart  , cycling  , initflag , iter, flag_iter,       &
+        isfflx   , restart  , cycling  , initflag , iter,                  &
         ! optional ccpp fields
         dry , wet , icy   ,                                                &
 #if (defined(mpas))
@@ -251,7 +251,6 @@
  integer,intent(in),optional:: ivegsrc
  integer,intent(in),optional:: sfc_z0_type ! option for calculating surface roughness length over ocean
  logical,intent(in),optional:: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
- logical,intent(in),optional:: flag_iter
  integer,intent(in),optional:: iter
  real,   intent(in),optional:: xice_threshold ! not needed in CCPP
  
@@ -295,7 +294,7 @@
  character(len=*), intent(inout) :: errmsg
  integer,          intent(inout) :: errflg
 
- real(kind_phys),intent(inout),dimension(ims:ime,jms:jme)::        &
+ real(kind_phys),intent(out),dimension(ims:ime,jms:jme)::        &
     u10,   &
     v10,   &
     th2,   &
@@ -303,22 +302,21 @@
     q2
 
  real(kind_phys),intent(out),dimension(ims:ime,jms:jme),optional:: &
+    cm,    &
     ck,    &
     cka,   &
     cd,    &
     cda,   &
-    ustm
-
+    ustm,  &
+    fm,    &
+    fh,    &
+    fm10,  &
+    fh2
  !--- inout arguments:
   real(kind_phys),intent(inout),dimension(ims:ime,jms:jme),optional:: &
     hflx,   &
     qflx,   &
-    stress, &
-    fm,     &
-    fh,     &
-    fm10,   &
-    fh2,    &
-    cm
+    stress
  real(kind_phys),intent(inout),dimension(ims:ime,jms:jme):: &
     pblh,   &
     hfx,    &
@@ -347,7 +345,7 @@
     cqs
 !--- local variables and arrays:
  integer:: i,j,k,vegtype_1,loc_z0_type,ncalls,loc_iter
- logical:: loc_redrag,loc_cycle,ccpp_iter
+ logical:: loc_redrag,loc_cycle
  real(kind_phys),dimension(ims:ime,jms:jme):: wstar
  real(kind_phys),dimension(ims:ime,jms:jme):: qstar
 !--- optional ccpp flags:
@@ -503,13 +501,19 @@
        psim_1   = psim(i,j)
        psih_1   = psih(i,j)
 
+       !output arguments:
+       u10_1    = zero
+       v10_1    = zero
+       th2_1    = zero
+       t2_1     = zero
+       q2_1     = zero
+       wstar_1  = zero
+
        !optional configuration inputs:
        loc_redrag = .false.
        if(present(redrag)) loc_redrag = redrag  !CCPP option from GFS
        loc_iter   = 1
        if(present(iter)) loc_iter = iter
-       ccpp_iter  = .true.
-       if(present(flag_iter)) ccpp_iter = flag_iter !CCPP option. In WRF or MPAS, just set = True
        loc_z0_type= 0
        if(present(sfc_z0_type)) loc_z0_type = sfc_z0_type !CCPP option from GFS
        !optional array inputs:
@@ -544,23 +548,6 @@
           vegtype_1  = 1
        endif
 
-       !output arguments:
-       if (iter == 1) then
-          u10_1    = zero
-          v10_1    = zero
-          th2_1    = zero
-          t2_1     = zero
-          q2_1     = zero
-          wstar_1  = zero
-       else
-          u10_1    = u10(i,j)
-          v10_1    = v10(i,j)
-          th2_1    = th2(i,j)
-          t2_1     = t2(i,j)
-          q2_1     = q2(i,j)*(one-qv_1)
-          wstar_1  = zero
-       endif
-
        !optional output arguments:
        if(present(ck) .and. present(cka) .and. present(cd) .and. present(cda)) then
           ck_1  = zero
@@ -574,17 +561,11 @@
           ustm_1 = zero
        endif
 
-       !ccpp
        if(present(fm) .and. present(fh) .and. present(fm10) .and. present(fh2)) then
-          fm_1     = fm(i,j)
-          fh_1     = fh(i,j)
-          fm10_1   = fm10(i,j)
-          fh2_1    = fh2(i,j)
-       else
-          fm_1     = zero
-          fh_1     = zero
-          fm10_1   = zero
-          fh2_1    = zero
+          fm_1     = zero  !ccpp
+          fh_1     = zero  !ccpp
+          fm10_1   = zero  !ccpp
+          fh2_1    = zero  !ccpp
        endif
 
        if (debug_driver > 0) then
@@ -611,7 +592,7 @@
           endif
           call mynnsfc_land( &
                  !model info
-                 i        = i         , j        = j         , itimestep= itimestep, flag_iter=ccpp_iter,    &
+                 i        = i         , j        = j         , itimestep= itimestep,  &
                  dx       = dx_1      , xland    = xland_1   , iter     = loc_iter     ,                     &
                  !3d input - transformed to single point
                  u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
@@ -660,7 +641,7 @@
           endif
           call mynnsfc_water( &
                  !model info
-                 i        = i         , j        = j         , itimestep= itimestep, flag_iter = ccpp_iter,  &
+                 i        = i         , j        = j         , itimestep= itimestep,                         &
                  dx       = dx_1      , xland    = xland_1   , iter     = loc_iter , lakemask  = lakemask_1, &
                  wat_depth=wat_depth_1,                                                                      &
                  !3d input - transformed to single point
@@ -710,7 +691,7 @@
           endif
           call mynnsfc_ice( &
                 !model info
-                 i        = i         , j        = j         , itimestep= itimestep,    flag_iter=ccpp_iter, &
+                 i        = i         , j        = j         , itimestep= itimestep,    &
                  dx       = dx_1      , xland    = xland_1   , iter     = loc_iter     ,                     &
                  !3d input - transformed to single point
                  u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
@@ -784,10 +765,8 @@
        qstar(i,j)  = qstar_1
 
        !optional output arguments, mostly for ccpp:
-       if (ccpp_iter) then ! keep hflx and qflx unchanged from 1st iter in CCPP
-          if(present(hflx))hflx(i,j)= hfx_1/(cp*rho_1)
-          if(present(qflx))qflx(i,j)= qfx_1/rho_1
-       endif
+       if(present(hflx)) hflx(i,j) = hfx_1/(cp*rho_1)
+       if(present(qflx)) qflx(i,j) = qfx_1/rho_1
        if(present(ck) .and. present(cka) .and. present(cd) .and. present(cda)) then
           ck(i,j)  = ck_1
           cka(i,j) = cka_1
