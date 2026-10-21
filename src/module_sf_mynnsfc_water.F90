@@ -121,8 +121,7 @@ CONTAINS
 !! diagnostics, as was needed in WRF, but these are skipped for FV3.
   SUBROUTINE mynnsfc_water( &
        !model info
-       !flag_iter   , itimestep   , i           , j           , &
-       itimestep   , i           , j           , &
+       itimestep   , i           , j           ,               &
        dx          , xland       , lakemask    , wat_depth   , &
        !3d input - transformed to single point
        u_1         , v_1         , t_1         , qv_1        , &
@@ -178,7 +177,6 @@ integer, intent(in) :: vegtype
 logical, intent(in) :: compute_flux
 logical, intent(in) :: compute_diag
 logical, intent(in) :: redrag ! reduced drag coeff. flag for high wind over sea (j.han)
-! logical, intent(in) :: flag_iter
 
 !-----------------------------
 ! input stability function tables
@@ -294,18 +292,15 @@ endif
 ! psfc ( in cmb) is used later in saturation checks
 psfc=psfcpa/1000._kind_phys
 
-!tgs - do computations if flag_iter = .true.
-! if ( flag_iter ) then
-   tsk = tskin
-   !saturation vapor pressure wrt water (bolton 1980)
-   e1=svp1*exp(svp2*(tsk-svpt0)/(tsk-svp3))
-   !For seawater with a salinity of 35 psu (practical salinity units), the saturation
-   !vapor pressure is reduced by approximately 1.88% compared to pure water.
-   if (lakemask .lt. p5) e1=e1*0.9812_kind_phys
-   qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
-   qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
-   !if(qsfc>one.or.qsfc<0.) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
-! endif ! flag_iter
+tsk = tskin
+!saturation vapor pressure wrt water (bolton 1980)
+e1=svp1*exp(svp2*(tsk-svpt0)/(tsk-svp3))
+!For seawater with a salinity of 35 psu (practical salinity units), the saturation
+!vapor pressure is reduced by approximately 1.88% compared to pure water.
+if (lakemask .lt. p5) e1=e1*0.9812_kind_phys
+qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
+qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
+!if(qsfc>one.or.qsfc<0.) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
 
 !qgh uses values at the lowest model level--not surface
 e1    = svp1*exp(svp2*(t_1-svpt0)/(t_1-svp3))
@@ -314,18 +309,17 @@ qgh   = ep2*e1/(pl-e1)      !mixing ratio
 
 qvmr  = qv_1/(one-qv_1)     !convert to mixing ratio
 thcon = (100000._kind_phys/psfcpa)**rovcp
-! if (flag_iter) then
-   ! define skin temperatures
-   tsk = tskin
-   !tsk = 0.5 * (tsurf+tskin)
-   ! convert skin temperatures to potential temperature:
-   thsk = tsk*thcon              !(Kelvin)
-   thvsk = thsk*(one+ep1*qsfc)   !(Kelvin)
-   if (thvsk < 160. .or. thvsk > 390.) then
-      print *,"*** unreasonable skin temperatures"
-      print *,'thvsk',itimestep,i,thvsk,thsk,tsurf,tskin,qsfc
-   endif
-! endif ! flag_iter
+
+! define skin temperatures
+tsk = tskin
+!tsk = 0.5 * (tsurf+tskin)
+! convert skin temperatures to potential temperature:
+thsk = tsk*thcon              !(Kelvin)
+thvsk = thsk*(one+ep1*qsfc)   !(Kelvin)
+if (thvsk < 160. .or. thvsk > 390.) then
+   print *,"*** unreasonable skin temperatures"
+   print *,'thvsk',itimestep,i,thvsk,thsk,tsurf,tskin,qsfc
+endif
 
 ! convert lowest layer temperature to potential temperature:
 th_1  = t_1*(100000._kind_phys/p_1)**rovcp    !(Kelvin)
@@ -342,61 +336,57 @@ cpm   = cp*(one+0.84_kind_phys*qv_1)
 !qfx=qflx*rho_1
 !hfx=hflx*rho_1*cp
 
+wspd=sqrt(u_1*u_1 + v_1*v_1)
+dthvdz=(thv_1-thvsk)
+!--------------------------------------------------------
+! Calculate the convective velocity scale (WSTAR) and
+! subgrid-scale velocity (VSGD) following Beljaars (1995, QJRMS)
+! and Mahrt and Sun (1995, MWR), respectively
+!-------------------------------------------------------
+!tgs - the line below could be used when hflx,qflx are moved from
+!      Interstitial to Sfcprop
+!fluxc = max(hflx + ep1*THVSK*qflx,0.)
+fluxc = max(hfx/rho_1/cp + ep1*thvsk*qfx/rho_1,zero)
+!wstar = vconvc*(grav/tsk*pblh*fluxc)**p333
+wstar = vconvc*(grav/tsk*pblh*fluxc)**p333
+!--------------------------------------------------------
+! Mahrt and Sun low-res correction - modified for water points (halved)
+! (for 13 km ~ 0.18 m/s; for 3 km == 0 m/s)
+!--------------------------------------------------------
+vsgd = min( p25 * (max(dx/5000._kind_phys-one,zero))**p333 , p5)
+wspd = sqrt(wspd*wspd + wstar*wstar + vsgd*vsgd)
+wspd = max(wspd,wmin)
+!--------------------------------------------------------
+! calculate the bulk richardson number of surface layer,
+! according to akb(1976), eq(12).
+!--------------------------------------------------------
+rb=govrth*za*dthvdz/(wspd*wspd)
+rb=max(rb,-2.0_kind_phys)
+rb=min(rb, two)
 
-! if (flag_iter) then
-   wspd=sqrt(u_1*u_1 + v_1*v_1)
-   dthvdz=(thv_1-thvsk)
-   !--------------------------------------------------------
-   ! Calculate the convective velocity scale (WSTAR) and
-   ! subgrid-scale velocity (VSGD) following Beljaars (1995, QJRMS)
-   ! and Mahrt and Sun (1995, MWR), respectively
-   !-------------------------------------------------------
-   !tgs - the line below could be used when hflx,qflx are moved from
-   !      Interstitial to Sfcprop
-   !fluxc = max(hflx + ep1*THVSK*qflx,0.)
-   fluxc = max(hfx/rho_1/cp + ep1*thvsk*qfx/rho_1,zero)
-   !wstar = vconvc*(grav/tsk*pblh*fluxc)**p333
-   wstar = vconvc*(grav/tsk*pblh*fluxc)**p333
-   !--------------------------------------------------------
-   ! Mahrt and Sun low-res correction - modified for water points (halved)
-   ! (for 13 km ~ 0.18 m/s; for 3 km == 0 m/s)
-   !--------------------------------------------------------
-   vsgd = min( p25 * (max(dx/5000._kind_phys-one,zero))**p333 , p5)
-   wspd = sqrt(wspd*wspd + wstar*wstar + vsgd*vsgd)
-   wspd = max(wspd,wmin)
-   !--------------------------------------------------------
-   ! calculate the bulk richardson number of surface layer,
-   ! according to akb(1976), eq(12).
-   !--------------------------------------------------------
-   rb=govrth*za*dthvdz/(wspd*wspd)
-   rb=max(rb,-2.0_kind_phys)
-   rb=min(rb, two)
-
-   if (debug_code >= 1) then
-      if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-      write(*,*)"over water: itimestep=",itimestep," iter=",iter
-      write(*,*)"=== important input to mynnsfclayer, i:", i
-      write(*,*)" pblh=",pblh," tsk=", tskin," znt=", znt
-      write(*,*)" tsurf=", tsurf," qsfc=", qsfc," qsfcmr=", qsfcmr
-      write(*,*)" ust=", ust," snowh=", snowh,"psfcpa=",PSFCPA
-      write(*,*)" dz=",dz8w_1," qfx=",qfx," hfx=",hfx
-      write(*,*)" psim_stab=",psim_stab(1)," psim_unstab=",psim_unstab(1)
-      write(*,*)" psih_stab=",psih_stab(1)," psih_unstab=",psih_unstab(1)
-      write(*,*)"thv_1=", thv_1," tv_1=",tv_1," thvsk=", thvsk
-      write(*,*)"rho_1=", rho_1," govrth=",govrth
-      write(*,*)"===== after rb calc in mynn sfc layer:"
-      write(*,*)"over water, itimestep=",itimestep
-      write(*,*)"wspd=", wspd," wstar=", wstar," vsgd=",vsgd
-      write(*,*)"rb=", rb," dthvdz=",dthvdz
-      endif
+if (debug_code >= 1) then
+   if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
+   write(*,*)"over water: itimestep=",itimestep," iter=",iter
+   write(*,*)"=== important input to mynnsfclayer, i:", i
+   write(*,*)" pblh=",pblh," tsk=", tskin," znt=", znt
+   write(*,*)" tsurf=", tsurf," qsfc=", qsfc," qsfcmr=", qsfcmr
+   write(*,*)" ust=", ust," snowh=", snowh,"psfcpa=",PSFCPA
+   write(*,*)" dz=",dz8w_1," qfx=",qfx," hfx=",hfx
+   write(*,*)" psim_stab=",psim_stab(1)," psim_unstab=",psim_unstab(1)
+   write(*,*)" psih_stab=",psih_stab(1)," psih_unstab=",psih_unstab(1)
+   write(*,*)"thv_1=", thv_1," tv_1=",tv_1," thvsk=", thvsk
+   write(*,*)"rho_1=", rho_1," govrth=",govrth
+   write(*,*)"===== after rb calc in mynn sfc layer:"
+   write(*,*)"over water, itimestep=",itimestep
+   write(*,*)"wspd=", wspd," wstar=", wstar," vsgd=",vsgd
+   write(*,*)"rb=", rb," dthvdz=",dthvdz
    endif
+endif
 
-   ! if previously unstable, do not let into regimes 1 and 2 (stable)
-   !if (itimestep .GT. 1) THEN
-   !    IF(MOL.LT.0.)BR=MIN(BR,0.0)
-   !ENDIF
-
-! endif ! flag_iter
+! if previously unstable, do not let into regimes 1 and 2 (stable)
+!if (itimestep .GT. 1) THEN
+!    IF(MOL.LT.0.)BR=MIN(BR,0.0)
+!ENDIF
 
  1006   format(A,F7.3,A,f9.4,A,f9.5,A,f9.4)
  1007   format(A,F2.0,A,f6.2,A,f7.3,A,f7.2)
@@ -406,295 +396,290 @@ cpm   = cp*(one+0.84_kind_phys*qv_1)
 !--- Begin iteration to calculate surface exchange coefficients
 !--------------------------------------------------------------------
 !--------------------------------------------------------------------
-! if (flag_iter) then
+!COMPUTE KINEMATIC VISCOSITY (m2/s) Andreas (1989) CRREL Rep. 89-11
+!valid between -173 and 277 degrees C.
+visc=1.326e-5_kind_phys*(one + 6.542e-3_kind_phys*tc_1 + &
+                          8.301e-6_kind_phys*tc_1*tc_1 - &
+                      4.84e-9_kind_phys*tc_1*tc_1*tc_1)
 
-   !COMPUTE KINEMATIC VISCOSITY (m2/s) Andreas (1989) CRREL Rep. 89-11
-   !valid between -173 and 277 degrees C.
-   visc=1.326e-5_kind_phys*(one + 6.542e-3_kind_phys*tc_1 + &
-                             8.301e-6_kind_phys*tc_1*tc_1 - &
-                         4.84e-9_kind_phys*tc_1*tc_1*tc_1)
-
-   if (sfc_z0_type >= 0) then ! avoid calculation is using wave model
-      !--------------------------------------
-      ! calculate z0 (znt)
-      !--------------------------------------
-
-      if (debug_code == 2) then
-         if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-         write(*,*)"=============input to znt over water:"
-         write(*,*)"u*:",ust," wspd=",wspd," visc=",visc," za=",za
-         endif
-      endif
-
-      if ( present(sf_mynn_sfcflux_water) ) then
-         if ( sf_mynn_sfcflux_water .eq. 0 ) then
-            !coare 3.0
-            call coare30_znt(znt,ust,wspd,visc,za)
-         elseif ( sf_mynn_sfcflux_water .eq. 1) then
-            !coare 3.5
-            call edson_etal_2013(znt,ust,wspd,visc,za)
-         elseif ( sf_mynn_sfcflux_water .eq. 2 .or. sf_mynn_sfcflux_water .eq. 3 ) then
-            call davis_etal_2008(znt,ust)
-         elseif ( sf_mynn_sfcflux_water .eq. 4 ) then
-            call taylor_yelland_2001(znt,ust,wspd)
-         elseif ( sf_mynn_sfcflux_water .eq. 5 ) then
-            !gfs surface layer physics
-            call gfs_z0_wat(znt,ust,wspd,za,sfc_z0_type,redrag)
-         endif
-      else
-         !default to coare 3.5
-         call edson_etal_2013(znt,ust,wspd,visc,za)
-      endif
-
-      !shallow water z0 blending to the open-ocean z0 calculated above (from Pedro & Jimy)
-      if (present(shalwater_z0)) then
-         if (shalwater_z0 .eq. 1) then
-            znt = depth_dependent_z0(wat_depth,znt,ust)
-         endif
-      endif
-   endif !-end wave model check
-
-   ! add stochastic perturbation of ZNT
-   if (spp_sfc==1) then
-      zntstoch  = max(znt + znt*one*rstoch_1, 1e-6_kind_phys)
-   else
-      zntstoch  = znt
-   endif
-
-   !COMPUTE ROUGHNESS REYNOLDS NUMBER (restar) USING NEW ZNT
-   ! AHW: Garrattt formula: Calculate roughness Reynolds number
-   !      Kinematic viscosity of air (linear approx to
-   !      temp dependence at sea level)
-   restar=MAX(ust*ZNTstoch/visc, p1)
-
+if (sfc_z0_type >= 0) then ! avoid calculation is using wave model
    !--------------------------------------
-   !CALCULATE z_t and z_q
+   ! calculate z0 (znt)
    !--------------------------------------
-   if (debug_code > 1) THEN
+
+   if (debug_code == 2) then
       if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-      write(*,*)"=============input to zt over water:"
-      write(*,*)"u*:",ust," restar=",restar," visc=",visc
-      write(*,*)"znt=",zntstoch
+      write(*,*)"=============input to znt over water:"
+      write(*,*)"u*:",ust," wspd=",wspd," visc=",visc," za=",za
       endif
    endif
 
    if ( present(sf_mynn_sfcflux_water) ) then
       if ( sf_mynn_sfcflux_water .eq. 0 ) then
-         call fairall_etal_2003(zt,zq,restar,ust,visc,&
-                                    rstoch_1,spp_sfc)
-      elseif ( sf_mynn_sfcflux_water .eq. 1 ) then
-         call fairall_etal_2014(zt,zq,restar,ust,visc,&
-                                    rstoch_1,spp_sfc)
-      elseif ( sf_mynn_sfcflux_water .eq. 2 ) then
-         !use COARE 3.5
-         call fairall_etal_2014(zt,zq,restar,ust,visc,&
-                                    rstoch_1,spp_sfc)
-      elseif ( sf_mynn_sfcflux_water .eq. 3 ) then
-         call garratt_1992(zt,zq,zntstoch,restar,2.0_kind_phys)
+         !coare 3.0
+         call coare30_znt(znt,ust,wspd,visc,za)
+      elseif ( sf_mynn_sfcflux_water .eq. 1) then
+         !coare 3.5
+         call edson_etal_2013(znt,ust,wspd,visc,za)
+      elseif ( sf_mynn_sfcflux_water .eq. 2 .or. sf_mynn_sfcflux_water .eq. 3 ) then
+         call davis_etal_2008(znt,ust)
       elseif ( sf_mynn_sfcflux_water .eq. 4 ) then
-      	 !use COARE 3.5
-         call fairall_etal_2014(zt,zq,restar,ust,visc,&
-                                     rstoch_1,spp_sfc)
+         call taylor_yelland_2001(znt,ust,wspd)
       elseif ( sf_mynn_sfcflux_water .eq. 5 ) then
-         !GFS zt formulation
-         call gfs_zt_wat(zt,zntstoch,restar,wspd,za,sfc_z0_type,errmsg,errflg)
-         if (errflg/=0) return
-         zq=zt
+         !gfs surface layer physics
+         call gfs_z0_wat(znt,ust,wspd,za,sfc_z0_type,redrag)
       endif
    else
       !default to coare 3.5
-      call fairall_etal_2014(zt,zq,restar,ust,visc,&
-                                 rstoch_1,spp_sfc)
+      call edson_etal_2013(znt,ust,wspd,visc,za)
    endif
 
-   if (debug_code > 1) then
-      if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-         write(*,*)"====output zt & zq over water: zt:",zt," zq:",zq
+   !shallow water z0 blending to the open-ocean z0 calculated above (from Pedro & Jimy)
+   if (present(shalwater_z0)) then
+      if (shalwater_z0 .eq. 1) then
+         znt = depth_dependent_z0(wat_depth,znt,ust)
       endif
    endif
+endif !-end wave model check
 
-   gz1oz0= log((za+zntstoch)/zntstoch)
-   gz1ozt= log((za+zntstoch)/zt)
-   gz2oz0= log((two+zntstoch)/zntstoch)
-   gz2ozt= log((two+zntstoch)/zt)
-   gz10oz0=log((ten+zntstoch)/zntstoch)
-   gz10ozt=log((ten+zntstoch)/zt)
-   zratio=zntstoch/zt   !need estimate for li et al.
+! add stochastic perturbation of ZNT
+if (spp_sfc==1) then
+   zntstoch  = max(znt + znt*one*rstoch_1, 1e-6_kind_phys)
+else
+   zntstoch  = znt
+endif
 
-   !Capture a representative ZNT
-   !ZNT=ZNTstoch
+!COMPUTE ROUGHNESS REYNOLDS NUMBER (restar) USING NEW ZNT
+! AHW: Garrattt formula: Calculate roughness Reynolds number
+!      Kinematic viscosity of air (linear approx to
+!      temp dependence at sea level)
+restar=MAX(ust*ZNTstoch/visc, p1)
 
-   !--------------------------------------------------------------------
-   !--- DIAGNOSE STABILITY FUNCTIONS FOR THE APPROPRIATE STABILITY CLASS:
-   !    THE STABILITY CLASSES ARE DETERMINED BY THE BULK RICHARDSON NUMBER.
-   !--------------------------------------------------------------------
-   if (rb .gt. zero) then
+!--------------------------------------
+!CALCULATE z_t and z_q
+!--------------------------------------
+if (debug_code > 1) THEN
+   if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
+   write(*,*)"=============input to zt over water:"
+   write(*,*)"u*:",ust," restar=",restar," visc=",visc
+   write(*,*)"znt=",zntstoch
+   endif
+endif
 
-      IF (.not. flag_restart .or. (flag_restart .and. itimestep > 1) ) THEN
-         !COMPUTE z/L first guess:
-         call li_etal_2010(zol,rb,za/zntstoch,zratio)
-         !zol=za*karman*grav*mol/(th_1*max(ust*ust,0.0001))
-         zol=max(zol,zero)
-         zol=min(zol,twenty)
+if ( present(sf_mynn_sfcflux_water) ) then
+   if ( sf_mynn_sfcflux_water .eq. 0 ) then
+      call fairall_etal_2003(zt,zq,restar,ust,visc,&
+                                 rstoch_1,spp_sfc)
+   elseif ( sf_mynn_sfcflux_water .eq. 1 ) then
+      call fairall_etal_2014(zt,zq,restar,ust,visc,&
+                                 rstoch_1,spp_sfc)
+   elseif ( sf_mynn_sfcflux_water .eq. 2 ) then
+      !use COARE 3.5
+      call fairall_etal_2014(zt,zq,restar,ust,visc,&
+                                 rstoch_1,spp_sfc)
+   elseif ( sf_mynn_sfcflux_water .eq. 3 ) then
+      call garratt_1992(zt,zq,zntstoch,restar,2.0_kind_phys)
+   elseif ( sf_mynn_sfcflux_water .eq. 4 ) then
+      !use COARE 3.5
+      call fairall_etal_2014(zt,zq,restar,ust,visc,&
+                                  rstoch_1,spp_sfc)
+   elseif ( sf_mynn_sfcflux_water .eq. 5 ) then
+      !GFS zt formulation
+      call gfs_zt_wat(zt,zntstoch,restar,wspd,za,sfc_z0_type,errmsg,errflg)
+      if (errflg/=0) return
+      zq=zt
+   endif
+else
+   !default to coare 3.5
+   call fairall_etal_2014(zt,zq,restar,ust,visc,&
+                              rstoch_1,spp_sfc)
+endif
 
-         if (debug_code == 2) then
-            if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-            if (zntstoch < 1e-8 .or. zt < 1e-10) then
-               write(0,*)"===(water) capture bad input in mynn sfc layer, i=:",i
-               write(0,*)"rb=", rb," znt=", zntstoch," zt=",zt
-               write(0,*)" tsk=", tskin," prev z/l=",zol,&
-                 " tsurf=", tsurf," qsfc=", qsfc," znt=", znt,&
-                 " ust=", ust," snowh=", snowh,"psfcpa=",psfcpa,  &
-                 " dz=",dz8w_1," qfx=",qfx," hfx=",hfx," hpbl=",pblh
-            endif
-            endif
-         endif
+if (debug_code > 1) then
+   if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
+      write(*,*)"====output zt & zq over water: zt:",zt," zq:",zq
+   endif
+endif
 
-         !Use Pedros iterative function to find z/L
-         !zol=zolri(rb,ZA,ZNTstoch,ZT,ZOL,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
-         !Use brute-force method
-         zol=zolrib(rb,za,zntstoch,zt,gz1oz0,gz1ozt,zol,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
-      endif ! restart
+gz1oz0= log((za+zntstoch)/zntstoch)
+gz1ozt= log((za+zntstoch)/zt)
+gz2oz0= log((two+zntstoch)/zntstoch)
+gz2ozt= log((two+zntstoch)/zt)
+gz10oz0=log((ten+zntstoch)/zntstoch)
+gz10ozt=log((ten+zntstoch)/zt)
+zratio=zntstoch/zt   !need estimate for li et al.
+
+!Capture a representative ZNT
+!ZNT=ZNTstoch
+
+!--------------------------------------------------------------------
+!--- DIAGNOSE STABILITY FUNCTIONS FOR THE APPROPRIATE STABILITY CLASS:
+!    THE STABILITY CLASSES ARE DETERMINED BY THE BULK RICHARDSON NUMBER.
+!--------------------------------------------------------------------
+if (rb .gt. zero) then
+
+   IF (.not. flag_restart .or. (flag_restart .and. itimestep > 1) ) THEN
+      !COMPUTE z/L first guess:
+      call li_etal_2010(zol,rb,za/zntstoch,zratio)
+      !zol=za*karman*grav*mol/(th_1*max(ust*ust,0.0001))
       zol=max(zol,zero)
       zol=min(zol,twenty)
 
-      zolzt = zol*zt/ZA                ! zt/L
-      zolz0 = zol*ZNTstoch/ZA          ! z0/L
-      zolza = zol*(za+ZNTstoch)/za     ! (z+z0)/L
-      zol10 = zol*(ten+ZNTstoch)/za    ! (10+z0)/L
-      zol2  = zol*(two+ZNTstoch)/za    ! (2+z0)/L
-
-      !COMPUTE PSIM and PSIH
-      !CALL PSI_Suselj_Sood_2010(PSIM,PSIH,ZOL)
-      !CALL PSI_Beljaars_Holtslag_1991(PSIM,PSIH,ZOL)
-      !CALL PSI_Businger_1971(PSIM,PSIH,ZOL)
-      !CALL PSI_DyerHicks(PSIM,PSIH,ZOL,ZT,ZNTstoch,ZA)
-      !CALL PSI_CB2005(PSIM,PSIH,zolza,zolz0)
-      ! or use tables
-      psim=psim_stable(zolza,psi_opt,psim_stab)-psim_stable(zolz0,psi_opt,psim_stab)
-      psih=psih_stable(zolza,psi_opt,psih_stab)-psih_stable(zolzt,psi_opt,psih_stab)
-      psim10=psim_stable(zol10,psi_opt,psim_stab)-psim_stable(zolz0,psi_opt,psim_stab)
-      psih10=psih_stable(zol10,psi_opt,psih_stab)-psih_stable(zolz0,psi_opt,psih_stab)
-      psih2=psih_stable(zol2,psi_opt,psih_stab)-psih_stable(zolzt,psi_opt,psih_stab)
-
-      ! 1.0 over Monin-Obukhov length
-      rmol = ZOL/ZA
-
-   elseif(rb .EQ. 0.) THEN
-      !=========================================================
-      !-----CLASS 3; FORCED CONVECTION/NEUTRAL:
-      !=========================================================
-      psim  =zero
-      psih  =psim
-      psim10=zero
-      psih10=zero
-      psih2 =zero
-      zol   =zero
-      rmol  =zero
-
-   elseif(rb .LT. zero)THEN
-      !==========================================================
-      !-----CLASS 4; FREE CONVECTION:
-      !==========================================================
-
-      !COMPUTE z/L first guess:
-      if (.not. flag_restart .or. (flag_restart .and. itimestep > 1) ) then
-         call li_etal_2010(zol,rb,za/zntstoch,zratio)
-         !zol=za*karman*grav*mol/(th_1*max(ust*ust,0.001))
-         zol=max(zol,-20.0_kind_phys)
-         zol=min(zol,zero)
-
-         if (debug_code == 2) then
-            if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-            if (zntstoch < 1e-8 .or. zt < 1e-10) then
-               write(0,*)"===(wet) capture bad input in mynn sfc layer, i=:",i
-               write(0,*)"rb=", rb," ZNT=", ZNTstoch," ZT=",Zt
-               write(0,*)" tsk=", tskin," wstar=",wstar," prev z/L=",ZOL,&
-                  " tsurf=", tsurf," qsfc=", qsfc," znt=", znt,&
-                  " ust=", ust," snowh=", snowh,"psfcpa=",PSFCPA,  &
-                  " dz=",dz8w_1," qfx=",qfx," hfx=",hfx," hpbl=",pblh
-            endif
-            endif
+      if (debug_code == 2) then
+         if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
+         if (zntstoch < 1e-8 .or. zt < 1e-10) then
+            write(0,*)"===(water) capture bad input in mynn sfc layer, i=:",i
+            write(0,*)"rb=", rb," znt=", zntstoch," zt=",zt
+            write(0,*)" tsk=", tskin," prev z/l=",zol,&
+              " tsurf=", tsurf," qsfc=", qsfc," znt=", znt,&
+              " ust=", ust," snowh=", snowh,"psfcpa=",psfcpa,  &
+              " dz=",dz8w_1," qfx=",qfx," hfx=",hfx," hpbl=",pblh
          endif
+         endif
+      endif
 
-         !Use Pedros iterative function to find z/L
-         !zol=zolri(rb,ZA,ZNTstoch,ZT,ZOL,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
-         !Use brute-force method
-         zol=zolrib(rb,ZA,ZNTstoch,zt,GZ1OZ0,GZ1OZt,ZOL,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
-      endif ! restart
+      !Use Pedros iterative function to find z/L
+      !zol=zolri(rb,ZA,ZNTstoch,ZT,ZOL,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
+      !Use brute-force method
+      zol=zolrib(rb,za,zntstoch,zt,gz1oz0,gz1ozt,zol,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
+   endif ! restart
+   zol=max(zol,zero)
+   zol=min(zol,twenty)
+
+   zolzt = zol*zt/ZA                ! zt/L
+   zolz0 = zol*ZNTstoch/ZA          ! z0/L
+   zolza = zol*(za+ZNTstoch)/za     ! (z+z0)/L
+   zol10 = zol*(ten+ZNTstoch)/za    ! (10+z0)/L
+   zol2  = zol*(two+ZNTstoch)/za    ! (2+z0)/L
+
+   !COMPUTE PSIM and PSIH
+   !CALL PSI_Suselj_Sood_2010(PSIM,PSIH,ZOL)
+   !CALL PSI_Beljaars_Holtslag_1991(PSIM,PSIH,ZOL)
+   !CALL PSI_Businger_1971(PSIM,PSIH,ZOL)
+   !CALL PSI_DyerHicks(PSIM,PSIH,ZOL,ZT,ZNTstoch,ZA)
+   !CALL PSI_CB2005(PSIM,PSIH,zolza,zolz0)
+   ! or use tables
+   psim=psim_stable(zolza,psi_opt,psim_stab)-psim_stable(zolz0,psi_opt,psim_stab)
+   psih=psih_stable(zolza,psi_opt,psih_stab)-psih_stable(zolzt,psi_opt,psih_stab)
+   psim10=psim_stable(zol10,psi_opt,psim_stab)-psim_stable(zolz0,psi_opt,psim_stab)
+   psih10=psih_stable(zol10,psi_opt,psih_stab)-psih_stable(zolz0,psi_opt,psih_stab)
+   psih2=psih_stable(zol2,psi_opt,psih_stab)-psih_stable(zolzt,psi_opt,psih_stab)
+
+   ! 1.0 over Monin-Obukhov length
+   rmol = ZOL/ZA
+
+elseif(rb .EQ. 0.) THEN
+   !=========================================================
+   !-----CLASS 3; FORCED CONVECTION/NEUTRAL:
+   !=========================================================
+   psim  =zero
+   psih  =psim
+   psim10=zero
+   psih10=zero
+   psih2 =zero
+   zol   =zero
+   rmol  =zero
+
+elseif(rb .LT. zero)THEN
+   !==========================================================
+   !-----CLASS 4; FREE CONVECTION:
+   !==========================================================
+
+   !COMPUTE z/L first guess:
+   if (.not. flag_restart .or. (flag_restart .and. itimestep > 1) ) then
+      call li_etal_2010(zol,rb,za/zntstoch,zratio)
+      !zol=za*karman*grav*mol/(th_1*max(ust*ust,0.001))
       zol=max(zol,-20.0_kind_phys)
       zol=min(zol,zero)
 
-      zolzt = zol*zt/ZA                 ! zt/L
-      zolz0 = zol*ZNTstoch/ZA           ! z0/L
-      zolza = zol*(za+ZNTstoch)/za      ! (z+z0)/L
-      zol10 = zol*(ten+ZNTstoch)/za     ! (10+z0)/L
-      zol2  = zol*(two+ZNTstoch)/za     ! (2+z0)/L
+      if (debug_code == 2) then
+         if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
+         if (zntstoch < 1e-8 .or. zt < 1e-10) then
+            write(0,*)"===(wet) capture bad input in mynn sfc layer, i=:",i
+            write(0,*)"rb=", rb," ZNT=", ZNTstoch," ZT=",Zt
+            write(0,*)" tsk=", tskin," wstar=",wstar," prev z/L=",ZOL,&
+               " tsurf=", tsurf," qsfc=", qsfc," znt=", znt,&
+               " ust=", ust," snowh=", snowh,"psfcpa=",PSFCPA,  &
+               " dz=",dz8w_1," qfx=",qfx," hfx=",hfx," hpbl=",pblh
+         endif
+         endif
+      endif
 
-      !COMPUTE PSIM and PSIH
-      !CALL PSI_Suselj_Sood_2010(PSIM,PSIH,ZOL)
-      !CALL PSI_Hogstrom_1996(PSIM,PSIH,ZOL, ZT, ZNTstoch, ZA)
-      !CALL PSI_Businger_1971(PSIM,PSIH,ZOL)
-      !CALL PSI_DyerHicks(PSIM,PSIH,ZOL,ZT,ZNTstoch,ZA)
-      ! use tables
-      psim=psim_unstable(zolza,psi_opt,psim_unstab)-psim_unstable(zolz0,psi_opt,psim_unstab)
-      psih=psih_unstable(zolza,psi_opt,psih_unstab)-psih_unstable(zolzt,psi_opt,psih_unstab)
-      psim10=psim_unstable(zol10,psi_opt,psim_unstab)-psim_unstable(zolz0,psi_opt,psim_unstab)
-      psih10=psih_unstable(zol10,psi_opt,psih_unstab)-psih_unstable(zolz0,psi_opt,psih_unstab)
-      psih2=psih_unstable(zol2,psi_opt,psih_unstab)-psih_unstable(zolzt,psi_opt,psih_unstab)
+      !Use Pedros iterative function to find z/L
+      !zol=zolri(rb,ZA,ZNTstoch,ZT,ZOL,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
+      !Use brute-force method
+      zol=zolrib(rb,ZA,ZNTstoch,zt,GZ1OZ0,GZ1OZt,ZOL,psi_opt,psim_stab,psih_stab,psim_unstab,psih_unstab)
+   endif ! restart
+   zol=max(zol,-20.0_kind_phys)
+   zol=min(zol,zero)
 
-      !---limit psih and psim in the case of thin layers and
-      !---high roughness.  this prevents denominator in fluxes
-      !---from getting too small
-      psih  =min(psih,  p9*gz1ozt)
-      psim  =min(psim,  p9*gz1oz0)
-      psih2 =min(psih2, p9*gz2ozt)
-      psim10=min(psim10,p9*gz10oz0)
-      psih10=min(psih10,p9*gz10ozt)
+   zolzt = zol*zt/ZA                 ! zt/L
+   zolz0 = zol*ZNTstoch/ZA           ! z0/L
+   zolza = zol*(za+ZNTstoch)/za      ! (z+z0)/L
+   zol10 = zol*(ten+ZNTstoch)/za     ! (10+z0)/L
+   zol2  = zol*(two+ZNTstoch)/za     ! (2+z0)/L
 
-      rmol = zol/za
+   !COMPUTE PSIM and PSIH
+   !CALL PSI_Suselj_Sood_2010(PSIM,PSIH,ZOL)
+   !CALL PSI_Hogstrom_1996(PSIM,PSIH,ZOL, ZT, ZNTstoch, ZA)
+   !CALL PSI_Businger_1971(PSIM,PSIH,ZOL)
+   !CALL PSI_DyerHicks(PSIM,PSIH,ZOL,ZT,ZNTstoch,ZA)
+   ! use tables
+   psim=psim_unstable(zolza,psi_opt,psim_unstab)-psim_unstable(zolz0,psi_opt,psim_unstab)
+   psih=psih_unstable(zolza,psi_opt,psih_unstab)-psih_unstable(zolzt,psi_opt,psih_unstab)
+   psim10=psim_unstable(zol10,psi_opt,psim_unstab)-psim_unstable(zolz0,psi_opt,psim_unstab)
+   psih10=psih_unstable(zol10,psi_opt,psih_unstab)-psih_unstable(zolz0,psi_opt,psih_unstab)
+   psih2=psih_unstable(zol2,psi_opt,psih_unstab)-psih_unstable(zolzt,psi_opt,psih_unstab)
 
-   endif
+   !---limit psih and psim in the case of thin layers and
+   !---high roughness.  this prevents denominator in fluxes
+   !---from getting too small
+   psih  =min(psih,  p9*gz1ozt)
+   psim  =min(psim,  p9*gz1oz0)
+   psih2 =min(psih2, p9*gz2ozt)
+   psim10=min(psim10,p9*gz10oz0)
+   psih10=min(psih10,p9*gz10ozt)
 
-   ! calculate the resistance:
-   psix  =max(gz1oz0-psim   , one)    ! = fm
-   psix10=max(gz10oz0-psim10, one)    ! = fm10
-   psit  =max(gz1ozt-psih   , one)    ! = fh
-   psit2 =max(gz2ozt-psih2  , one)    ! = fh2
-   psiq  =max(log((za+zq)/zq)-psih   , one)
-   psiq2 =max(log((two+zq)/zq)-psih2 , one)
-   psiq10=max(log((ten+zq)/zq)-psih10, one)
+   rmol = zol/za
 
-   !------------------------------------------------------------
-   !-----COMPUTE THE FRICTIONAL VELOCITY:
-   !------------------------------------------------------------
+endif
 
-   ! to prevent oscillations average with old value
-   oldust = ust
-   ust=p5*ust + p5*karman*wspd/psix
-   !non-averaged:
-   !ust=karman*wspd/psix
-   stress=ust**2
+! calculate the resistance:
+psix  =max(gz1oz0-psim   , one)    ! = fm
+psix10=max(gz10oz0-psim10, one)    ! = fm10
+psit  =max(gz1ozt-psih   , one)    ! = fh
+psit2 =max(gz2ozt-psih2  , one)    ! = fh2
+psiq  =max(log((za+zq)/zq)-psih   , one)
+psiq2 =max(log((two+zq)/zq)-psih2 , one)
+psiq10=max(log((ten+zq)/zq)-psih10, one)
 
-   ! Compute u* without vconv for use in HFX calc when sf_mynn_sfcflux_water > 0
-   wspdi=max(sqrt(u_1*u_1 + v_1*v_1), wmin)
-   ustm=p5*ustm + p5*karman*wspdi/psix
+!------------------------------------------------------------
+!-----COMPUTE THE FRICTIONAL VELOCITY:
+!------------------------------------------------------------
 
-   !----------------------------------------------------
-   !----COMPUTE THE TEMPERATURE SCALE (a.k.a. FRICTION TEMPERATURE, T*, or MOL)
-   !----AND COMPUTE THE MOISTURE SCALE (or q*)
-   !----------------------------------------------------
-   dtg=thv_1-thvsk
-   oldtst=mol
-   mol=karman*dtg/psit/prt
-   !t_star = -hfx/(ust*cpm*rho_1)
-   !t_star = mol
-   !----------------------------------------------------
-   dqg=(qv_1-qsfc)*1000.   !(kg/kg -> g/kg)
-   qstar=karman*dqg/psiq/prt
- 
-! endif ! flag_iter
+! to prevent oscillations average with old value
+oldust = ust
+ust=p5*ust + p5*karman*wspd/psix
+!non-averaged:
+!ust=karman*wspd/psix
+stress=ust**2
 
+! Compute u* without vconv for use in HFX calc when sf_mynn_sfcflux_water > 0
+wspdi=max(sqrt(u_1*u_1 + v_1*v_1), wmin)
+ustm=p5*ustm + p5*karman*wspdi/psix
+
+!----------------------------------------------------
+!----COMPUTE THE TEMPERATURE SCALE (a.k.a. FRICTION TEMPERATURE, T*, or MOL)
+!----AND COMPUTE THE MOISTURE SCALE (or q*)
+!----------------------------------------------------
+dtg=thv_1-thvsk
+oldtst=mol
+mol=karman*dtg/psit/prt
+!t_star = -hfx/(ust*cpm*rho_1)
+!t_star = mol
+!----------------------------------------------------
+dqg=(qv_1-qsfc)*1000.   !(kg/kg -> g/kg)
+qstar=karman*dqg/psiq/prt
 
 if (debug_code >= 1) then
    if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
@@ -711,155 +696,146 @@ endif
 !----------------------------------------------------------
 !  COMPUTE SURFACE HEAT AND MOISTURE FLUXES
 !----------------------------------------------------------
-! if ( flag_iter ) then
+if (isfflx .lt. 1) then
 
-   if (isfflx .lt. 1) then
+   qfx  = zero
+   hfx  = zero
+   flhc = zero
+   flqc = zero
+   lh   = zero
+   chs  = zero
+   ch   = zero
+   chs2 = zero
+   cqs2 = zero
+   cqs  = zero
+   cm   = zero
+   if(present(ck)  .and. present(cd) .and. &
+     &present(cka) .and. present(cda)) then
+        ck = zero
+        cd = zero
+        cka= zero
+        cda= zero
+    endif
 
-      qfx  = zero
-      hfx  = zero
-      flhc = zero
-      flqc = zero
-      lh   = zero
-      chs  = zero
-      ch   = zero
-      chs2 = zero
-      cqs2 = zero
-      cqs  = zero
-      cm   = zero
-      if(present(ck)  .and. present(cd) .and. &
-        &present(cka) .and. present(cda)) then
-           ck = zero
-           cd = zero
-           cka= zero
-           cda= zero
-       endif
+else
 
-   else
+   !------------------------------------------
+   ! CALCULATE THE EXCHANGE COEFFICIENTS FOR HEAT (FLHC)
+   ! AND MOISTURE (FLQC)
+   !------------------------------------------
+   flqc=rho_1*mavail*ust*karman/psiq
+   flhc=rho_1*cpm*ust*karman/psit
 
-      !------------------------------------------
-      ! CALCULATE THE EXCHANGE COEFFICIENTS FOR HEAT (FLHC)
-      ! AND MOISTURE (FLQC)
-      !------------------------------------------
-      flqc=rho_1*mavail*ust*karman/psiq
-      flhc=rho_1*cpm*ust*karman/psit
+   if (compute_flux) then
+      !----------------------------------
+      ! compute surface moisture flux:
+      !----------------------------------
+      !qfx=flqc*(qsfcmr-qvmr)
+      qfx=flqc*(qsfc-qv_1)
+      qfx=max(qfx,-0.02_kind_phys)      !allows small neg qfx
+      lh=xlv*qfx
+      ! bwg, 2020-06-17: mod next 2 lines for fractional
+      !qflx=qfx/rho_1
 
-      if (compute_flux) then
-         !----------------------------------
-         ! compute surface moisture flux:
-         !----------------------------------
-         !qfx=flqc*(qsfcmr-qvmr)
-         qfx=flqc*(qsfc-qv_1)
-         qfx=max(qfx,-0.02_kind_phys)      !allows small neg qfx
-         lh=xlv*qfx
-         ! bwg, 2020-06-17: mod next 2 lines for fractional
-         !qflx=qfx/rho_1
-
-         !----------------------------------
-         ! compute surface heat flux:
-         !----------------------------------
-         !hfx=flhc*(thsk-th_1)
-         hfx=rho_1*cpm*karman*wspd/psix*karman/psit*(thsk-th_1)
-         if ( present(sf_mynn_sfcflux_water) ) then
-            if ( sf_mynn_sfcflux_water > 1 ) then
-               ! ahw: add dissipative heating term
-               hfx=hfx+rho_1*ustm*ustm*wspdi
-            endif
-         endif
-         ! bwg, 2020-06-17: mod next 2 lines for fractional
-         !hflx=hfx/(rho_1*cpm)
-      endif
-
-      !transfer coeff for some lsms:
-      !chs=ust*karman/(alog(karman*ust*za &
-      !       /xka+za/zl)-psih)
-      chs=ust*karman/psit
-
-      !these are used for 2-m diagnostics only
-      cqs =ust*karman/psiq
-      cqs2=ust*karman/psiq2
-      chs2=ust*karman/psit2
-
-      if(present(ck)  .and. present(cd) .and. &
-        &present(cka) .and. present(cda)) then
-         ck =(karman/psix10)*(karman/psiq10)
-         cd =(karman/psix10)*(karman/psix10)
-         cka=(karman/psix)*(karman/psiq)
-         cda=(karman/psix)*(karman/psix)
-      endif
-
-      if (debug_code >= 1) then
-         if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
-         write(*,*)"=== water: after flux calculations:"
-         write(*,*)"qfx=",qfx,"flqc=",flqc," lh=",lh
-         write(*,*)"hfx=",hfx,"flhc=",flhc," wspd=",wspd
-         write(*,*)" u*=",ust," psiq=",psiq," chs=",chs
+      !----------------------------------
+      ! compute surface heat flux:
+      !----------------------------------
+      !hfx=flhc*(thsk-th_1)
+      hfx=rho_1*cpm*karman*wspd/psix*karman/psit*(thsk-th_1)
+      if ( present(sf_mynn_sfcflux_water) ) then
+         if ( sf_mynn_sfcflux_water > 1 ) then
+            ! ahw: add dissipative heating term
+            hfx=hfx+rho_1*ustm*ustm*wspdi
          endif
       endif
+      ! bwg, 2020-06-17: mod next 2 lines for fractional
+      !hflx=hfx/(rho_1*cpm)
+   endif
 
-      !-----------------------------------------
-      !--- compute exchange coefficients for fv3
-      !-----------------------------------------
-      ch=(karman/psix)*(karman/psit)  !=flhc/( cpm*rho_1 )
-      cm=(karman/psix)*(karman/psix)
- 
-   endif !end isfflx option
+   !transfer coeff for some lsms:
+   !chs=ust*karman/(alog(karman*ust*za &
+   !       /xka+za/zl)-psih)
+   chs=ust*karman/psit
 
-! endif ! flag_iter
+   !these are used for 2-m diagnostics only
+   cqs =ust*karman/psiq
+   cqs2=ust*karman/psiq2
+   chs2=ust*karman/psit2
 
+   if(present(ck)  .and. present(cd) .and. &
+     &present(cka) .and. present(cda)) then
+      ck =(karman/psix10)*(karman/psiq10)
+      cd =(karman/psix10)*(karman/psix10)
+      cka=(karman/psix)*(karman/psiq)
+      cda=(karman/psix)*(karman/psix)
+   endif
+
+   if (debug_code >= 1) then
+      if (isolate_db == 0 .or. (isolate_db ==1 .and. i==idb .and. j==jdb)) then
+      write(*,*)"=== water: after flux calculations:"
+      write(*,*)"qfx=",qfx,"flqc=",flqc," lh=",lh
+      write(*,*)"hfx=",hfx,"flhc=",flhc," wspd=",wspd
+      write(*,*)" u*=",ust," psiq=",psiq," chs=",chs
+      endif
+   endif
+
+   !-----------------------------------------
+   !--- compute exchange coefficients for fv3
+   !-----------------------------------------
+   ch=(karman/psix)*(karman/psit)  !=flhc/( cpm*rho_1 )
+   cm=(karman/psix)*(karman/psix)
+
+endif !end isfflx option
 
 if (compute_diag) then
-
-   ! if ( flag_iter ) then
-      !-----------------------------------------------------
-      !COMPUTE DIAGNOSTICS
-      !-----------------------------------------------------
-      !COMPUTE 10 M WNDS
-      !-----------------------------------------------------
-      ! If the lowest model level is close to 10-m, use it
-      ! instead of the flux-based diagnostic formula.
-      if (za .le. 7.0) then
-         ! high vertical resolution
-         if(za2 .gt. 7.0 .and. za2 .lt. 13.0) then
-            !use 2nd model level
-            u10=u_2
-            v10=v_2
-         else
-            !u10=u_1*psix10/psix
-            !v10=v_1*psix10/psix
-            !use neutral-log:
-            u10=u_1*log(ten/zntstoch)/log(za/zntstoch)
-            v10=v_1*log(ten/zntstoch)/log(za/zntstoch)
-         endif
-      elseif (za .gt. 7.0 .and. za .lt. 13.0) then
-         !moderate vertical resolution
+   !-----------------------------------------------------
+   !COMPUTE DIAGNOSTICS
+   !-----------------------------------------------------
+   !COMPUTE 10 M WNDS
+   !-----------------------------------------------------
+   ! If the lowest model level is close to 10-m, use it
+   ! instead of the flux-based diagnostic formula.
+   if (za .le. 7.0) then
+      ! high vertical resolution
+      if(za2 .gt. 7.0 .and. za2 .lt. 13.0) then
+         !use 2nd model level
+         u10=u_2
+         v10=v_2
+      else
+         !u10=u_1*psix10/psix
+         !v10=v_1*psix10/psix
+         !use neutral-log:
          u10=u_1*log(ten/zntstoch)/log(za/zntstoch)
          v10=v_1*log(ten/zntstoch)/log(za/zntstoch)
-      else
-         ! very coarse vertical resolution
-         u10=u_1*psix10/psix
-         v10=v_1*psix10/psix
       endif
+   elseif (za .gt. 7.0 .and. za .lt. 13.0) then
+      !moderate vertical resolution
+      u10=u_1*log(ten/zntstoch)/log(za/zntstoch)
+      v10=v_1*log(ten/zntstoch)/log(za/zntstoch)
+   else
+      ! very coarse vertical resolution
+      u10=u_1*psix10/psix
+      v10=v_1*psix10/psix
+   endif
 
-      !-----------------------------------------------------
-      !COMPUTE 2m T, TH, AND Q
-      !-----------------------------------------------------
-      dtg=th_1-thsk
-      th2=thsk+dtg*psit2/psit
-      !***  be certain that the 2-m theta is bracketed by
-      !***  the values at the surface and lowest model level.
-      if ((th_1>thsk .and. (th2<thsk .or. th2>th_1)) .or. &
-         (th_1<thsk .and. (th2>thsk .or. th2<th_1))) then
-          th2=thsk + two*(th_1-thsk)/za
-      endif
-      t2=th2*(psfcpa/100000.)**rovcp
-      if (debug_code >= 1) &
-         write(*,*)"t2=",t2,"th2=",th2,"psfcpa=",psfcpa,"rovcp=",rovcp
+   !-----------------------------------------------------
+   !COMPUTE 2m T, TH, AND Q
+   !-----------------------------------------------------
+   dtg=th_1-thsk
+   th2=thsk+dtg*psit2/psit
+   !***  be certain that the 2-m theta is bracketed by
+   !***  the values at the surface and lowest model level.
+   if ((th_1>thsk .and. (th2<thsk .or. th2>th_1)) .or. &
+      (th_1<thsk .and. (th2>thsk .or. th2<th_1))) then
+       th2=thsk + two*(th_1-thsk)/za
+   endif
+   t2=th2*(psfcpa/100000.)**rovcp
+   if (debug_code >= 1) &
+      write(*,*)"t2=",t2,"th2=",th2,"psfcpa=",psfcpa,"rovcp=",rovcp
 
-      q2=qsfc+(qv_1-qsfc)*psiq2/psiq
-      q2= max(q2, min(qsfc, qv_1))
-      q2= min(q2, 1.05*qv_1)
-
-   ! endif ! flag_iter
+   q2=qsfc+(qv_1-qsfc)*psiq2/psiq
+   q2= max(q2, min(qsfc, qv_1))
+   q2= min(q2, 1.05*qv_1)
 
 endif ! end compute_diag
 
