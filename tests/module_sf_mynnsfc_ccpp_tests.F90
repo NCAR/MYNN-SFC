@@ -44,8 +44,7 @@ module module_sf_mynnsfc_ccpp_tests
     !=================================================================================================================
     subroutine ccpp_test(saveoutput)
 
-      use module_sf_mynnsfc_driver, only : mynnsfc_driver
-      ! use module_sf_mynnsfc, only : SFCLAY1D_mynn
+      use module_sf_mynnsfc_driver, only : mynnsfc_driver, mynnsfc_init
 
       logical, intent(in) :: saveoutput
       integer :: iostat, line_num
@@ -95,7 +94,10 @@ module module_sf_mynnsfc_ccpp_tests
       errmsg = ''
       errflg = 0
 
-      write(*,*) '--- entering ccpp_test subroutine'    
+      write(*,*) '--- entering ccpp_test subroutine'
+      ! initialize tables for psih and psim (stable and unstable)
+      call mynnsfc_init(.true.,errmsg,errflg)
+
       ! Initialize input data for tests
       call init_input_data_for_test(saveoutput)
 
