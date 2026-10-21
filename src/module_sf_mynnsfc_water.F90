@@ -852,7 +852,8 @@ if (compute_diag) then
           th2=thsk + two*(th_1-thsk)/za
       endif
       t2=th2*(psfcpa/100000.)**rovcp
-      write(*,*)"t2=",t2,"th2=",th2,"psfcpa=",psfcpa,"rovcp=",rovcp
+      if (debug_code >= 1) &
+         write(*,*)"t2=",t2,"th2=",th2,"psfcpa=",psfcpa,"rovcp=",rovcp
 
       q2=qsfc+(qv_1-qsfc)*psiq2/psiq
       q2= max(q2, min(qsfc, qv_1))

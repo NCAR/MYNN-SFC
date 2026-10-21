@@ -444,9 +444,11 @@
        if (dry_mixing_ratio) then
           qsfc_1   = qsfc(i,j)/(one+qvmr)  !convert to specific humidity
           qgh_1    = qgh(i,j)/(one+qvmr)   !convert to specific humidity
+          qfx_1    = qfx(i,j)/(one+qvmr)  !specific humidity flux
        else
           qsfc_1   = qsfc(i,j)             !coming in as specific humidity from CCPP
           qgh_1    = qgh(i,j)
+          qfx_1    = qfx(i,j)
        endif
        qstar_1  = qstar(i,j)
 
@@ -461,6 +463,7 @@
        mavail_1 = mavail(i,j)
        pblh_1   = pblh(i,j)
        xland_1  = xland(i,j)
+       xice_1   = zero
        if(present(xice)) then
          xice_1   = xice(i,j)
        endif
@@ -481,7 +484,6 @@
        
        !inout arguments:
        hfx_1    = hfx(i,j)
-       qfx_1    = qfx(i,j)/(one+qvmr)  !specific humidity flux
        hflx_1   = hfx_1/(cp*rho_1) !ccpp
        qflx_1   = qfx_1/rho_1      !ccpp
        lh_1     = lh(i,j)
@@ -725,14 +727,16 @@
        
        !inout arguments:
        hfx(i,j)    = hfx_1
-       qfx(i,j)    = qfx_1/(one-qv_1)  !mixing ratio flux
-       lh(i,j)     = lh_1/(one-qv_1)   !mixing ratio flux
        mol(i,j)    = mol_1
        rmol(i,j)   = rmol_1
        if (dry_mixing_ratio) then
+          qfx(i,j)    = qfx_1/(one-qv_1)  !mixing ratio flux
+          lh(i,j)     = lh_1/(one-qv_1)   !mixing ratio flux
           qsfc(i,j)   = qsfc_1/(one-qv_1) !mixing ratio
           qgh(i,j)    = qgh_1/(one-qv_1)  !mixing ratio
        else
+          qfx(i,j)    = qfx_1
+          lh(i,j)     = lh_1
           qsfc(i,j)   = qsfc_1
           qgh(i,j)    = qgh_1
        endif
