@@ -199,7 +199,10 @@ module module_sf_mynnsfc_wrf_tests
       real, dimension(1) :: HFLX_mod, HFX_mod , QFLX_mod, QFX_mod, LH_mod, ust_mod, &
                             u10_mod, v10_mod,t2_mod,th2_mod,q2_mod        
       real, dimension(1) :: HFLX, HFX, QFLX, QFX, LH, ust,stress
-                  
+
+      real, dimension(1) :: uoce,voce
+      real, dimension(1) :: taux,tauy
+      
       integer :: read_stat,itimestep
       real :: xlat,xlong
 
@@ -218,6 +221,8 @@ module module_sf_mynnsfc_wrf_tests
       rho3d=0.0
 
       xice=0.0
+      uoce=1.
+      voce=1.
       
       ! Initialize error variables
       errmsg = ''
@@ -301,6 +306,7 @@ module module_sf_mynnsfc_wrf_tests
               stress=stress , hflx=hflx, qflx=qflx, fm=psix, fh=psit,                                &
               fm10=psix10, fh2=psit2,                                                                &
               tsurf=tsk    ,                                                                         &
+              uoce=uoce,voce=voce,taux=taux,tauy=tauy,                                               &
               !configuration options
               spp_pbl=spp_pbl, pattern_spp_pbl=pattern_spp_pbl,                                      &
               sf_mynn_sfcflux_water=sf_mynn_sfcflux_water          ,                                 &

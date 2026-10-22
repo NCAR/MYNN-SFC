@@ -118,6 +118,7 @@
         stress   , hflx     , qflx     , cm       , fm       , fh        , &
         fm10     , fh2      , tsurf    , water_depth         ,             &
         xice     , xice_threshold      ,                                   &
+        uoce     , voce     , taux     , tauy     ,                        &  !BWB: for current-relative fluxes
         !configuration options
         spp_pbl  , pattern_spp_pbl     ,                                   &
         sf_mynn_sfcflux_water          ,                                   &
@@ -202,6 +203,10 @@
 !-- sf_mynn_sfcflux_water chooses the bulk-flux algorithm used over water (described above)
 !-- lakemask    0.0 for ocean, 1.0 for lakes
 !-- water_depth bathymetry(m)
+!-- uoce        zonal component of surface current velocity (m/s)      !BWB: for current-relative fluxes
+!-- voce        meridional component of surface current velocity (m/s) !BWB: for current-relative fluxes
+!-- taux        zonal momentum flux to atmosphere [N/m^2]              !BWB: for current-relative fluxes
+!-- tauy        meridional momentum flux to atmosphere [N/m^2]         !BWB: for current-relative fluxes
 !-- ids         start index for i in domain
 !-- ide         end index for i in domain
 !-- jds         start index for j in domain
@@ -290,6 +295,12 @@
     dx
  real(kind_phys),intent(in),dimension(ims:ime,jms:jme), optional:: &
     xice                        ! not needed in CCPP
+
+! BWB: for current-relative fluxes
+ real(kind_phys),intent(in),dimension(ims:ime,jms:jme):: &
+    uoce,  &
+    voce
+
  !--- output arguments:
  character(len=*), intent(inout) :: errmsg
  integer,          intent(inout) :: errflg
@@ -312,6 +323,12 @@
     fh,    &
     fm10,  &
     fh2
+
+ ! BWB: for current-relative fluxes
+ real(kind_phys),intent(out),dimension(ims:ime,jms:jme):: &
+    taux,  &
+    tauy
+ 
  !--- inout arguments:
   real(kind_phys),intent(inout),dimension(ims:ime,jms:jme),optional:: &
     hflx,   &
@@ -359,6 +376,7 @@
                      qsfc_1,qgh_1,znt_1,zol_1,ust_1,cpm_1,chs2_1,     &
                      cqs_1,cqs2_1,chs_1,ch_1,flhc_1,flqc_1,gz1oz0_1,  &
                      wspd_1,br_1,psim_1,psih_1
+ real(kind_phys) :: uoce_1,voce_1,taux_1,tauy_1    ! BWB: for current-relative fluxes
  real(kind_phys) :: u10_1,v10_1,th2_1,t2_1,q2_1
  real(kind_phys) :: cd_1,cda_1,ck_1,cka_1,ustm_1
  !in WRF and MPAS, these variables do not propogate outside of this driver. Use as placeholders for CCPP driver:
@@ -481,6 +499,8 @@
        else
           wat_depth_1  = 1000._kind_phys !default to deep ocean, since open oceans >> lakes
        endif
+       uoce_1 = uoce(i,j)    ! BWB: for current-relative fluxes
+       voce_1 = voce(i,j)    ! BWB: for current-relative fluxes
        
        !inout arguments:
        hfx_1    = hfx(i,j)
@@ -510,6 +530,8 @@
        t2_1     = zero
        q2_1     = zero
        wstar_1  = zero
+       taux_1   = zero    ! BWB: for current-relative fluxes
+       tauy_1   = zero    ! BWB: for current-relative fluxes
 
        !optional configuration inputs:
        loc_redrag = .false.
@@ -667,6 +689,7 @@
                  wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
                  ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
                  psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
+                 uoce     = uoce_1    , voce     = voce_1    , taux     = taux_1   , tauy      = tauy_1    , &    ! BWB: for current-relative fluxes
                  !configuration options
                  spp_sfc  = spp_pbl   , isfflx   = isfflx    ,sf_mynn_sfcflux_water= sf_mynn_sfcflux_water , &
                  flag_restart= restart, flag_cycle= cycling  , compute_flux        = compute_flux          , &
@@ -693,8 +716,8 @@
           endif
           call mynnsfc_ice( &
                 !model info
-                 i        = i         , j        = j         , itimestep= itimestep,    &
-                 dx       = dx_1      , xland    = xland_1   , iter     = loc_iter     ,                     &
+                 i        = i         , j        = j         , itimestep= itimestep,                         &
+                 dx       = dx_1      , xland    = xland_1   , iter     = loc_iter ,                         &
                  !3d input - transformed to single point
                  u_1      = u_1       , v_1      = v_1       , t_1      = t_1      , qv_1      = qv_1      , &
                  p_1      = p_1       , dz8w_1   = dz8w_1    , rho_1    = rho_1    , u_2       = u_2       , &
@@ -767,6 +790,8 @@
        q2(i,j)     = q2_1/(one-qv_1)  !mixing ratio
        wstar(i,j)  = wstar_1
        qstar(i,j)  = qstar_1
+       taux(i,j)   = taux_1    ! BWB: for current-relative fluxes
+       tauy(i,j)   = tauy_1    ! BWB: for current-relative fluxes
 
        !optional output arguments, mostly for ccpp:
        if(present(hflx)) hflx(i,j) = hfx_1/(cp*rho_1)
