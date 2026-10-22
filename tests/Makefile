@@ -1,15 +1,28 @@
-FC     = gfortran
+FC      = gfortran
 FCFLAGS = --coverage -Dstandalone -fprofile-arcs -ftest-coverage -fdefault-real-8 -fdefault-double-8 -g -fbacktrace
 
-SRC=machine.F90 ccpp_kind_types.F90 physcons.F90 ../src/module_sf_mynnsfc.F90  module_sf_mynnsfc_ccpp_tests.F90 module_state_description.F90 module_model_constants.F90 ../src/WRF/module_sf_mynnsfc_common.F90 ../src/module_sf_mynnsfc_land.F90 ../src/module_sf_mynnsfc_water.F90 ../src/module_sf_mynnsfc_ice.F90 ../src/module_sf_mynnsfc_driver.F90  module_sf_mynnsfc_wrf_tests.F90 driver.F90
-OBJ=machine.o ccpp_kind_types.o physcons.o module_sf_mynnsfc.o module_sf_mynnsfc_ccpp_tests.o module_state_description.o module_model_constants.o module_sf_mynnsfc_common.o module_sf_mynnsfc_land.o module_sf_mynnsfc_water.o module_sf_mynnsfc_ice.o module_sf_mynnsfc_driver.o  module_sf_mynnsfc_wrf_tests.o driver.o
+SRC = machine.F90 ccpp_kind_types.F90 module_state_description.F90 module_model_constants.F90 ../src/WRF/module_sf_mynnsfc_common.F90 ../src/module_sf_mynnsfc_land.F90 ../src/module_sf_mynnsfc_water.F90 ../src/module_sf_mynnsfc_ice.F90 ../src/module_sf_mynnsfc_driver.F90
 
-#OBJ=$(SRC:.F90=.o)
-%.o: %.F90
-	$(FC) $(FCFLAGS) -c $(SRC) -lgcov
+SRC_CCPP = $(SRC)  module_sf_mynnsfc_ccpp_tests.F90 driver.F90
+SRC_WRF  = $(SRC)  module_sf_mynnsfc_wrf_tests.F90 driver.F90
 
-driver: $(OBJ)
-	$(FC) $(FFLAGS) -o $@ $(OBJ) -lgcov
+all: driver_ccpp driver_wrf
+
+driver_ccpp:
+	mkdir -p build_ccpp
+	cd build_ccpp && $(FC) $(FCFLAGS) -c $(addprefix ../, $(SRC_CCPP)) -lgcov
+	$(FC) $(FCFLAGS) -o $@ build_ccpp/*.o -lgcov
+
+driver_wrf:
+	mkdir -p build_wrf
+	cd build_wrf && $(FC) $(FCFLAGS) -DEM_CORE=1 -c $(addprefix ../, $(SRC_WRF)) -lgcov
+	$(FC) $(FCFLAGS) -o $@ build_wrf/*.o -lgcov
+
+
+# run wrf and ccpp ci tests
+test: all
+	./driver_ccpp
+	./driver_wrf
 
 clean:
-	@rm -f *.mod *.o driver *.gcda *.gcno *.gcov
+	@rm -rf build_ccpp build_wrf *.mod *.o driver_ccpp driver_wrf *.gcda *.gcno *.gcov

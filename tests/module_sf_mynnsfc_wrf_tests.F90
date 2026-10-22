@@ -306,7 +306,7 @@ module module_sf_mynnsfc_wrf_tests
               sf_mynn_sfcflux_water=sf_mynn_sfcflux_water          ,                                 &
               sf_mynn_sfcflux_land=sf_mynn_sfcflux_land           ,                                  &
               isfflx=ISFFLX, restart=restart, cycling=cycling, initflag=1,                           &
-              flag_iter=flag_iter, flag_lsm=lsm,                                                     &
+              flag_lsm=lsm,                                                                          &
               !model information
               itimestep=itimestep,                                                                   &
               ids=1     , ide=1      , jds=1    , jde=1     , kds=1     , kde=1     ,                &
@@ -316,7 +316,7 @@ module module_sf_mynnsfc_wrf_tests
               )
 
 
-         write(0,*) "flag_iter",flag_iter,"T2=",t2,'chs=',ch,'ust=',UST,'hfx=',hfx_mod,'lh=',lh_mod,'xland=',xland, 'tsk', tsk
+         write(0,*) "T2=",t2,'chs=',ch,'ust=',UST,'hfx=',hfx_mod,'lh=',lh_mod,'xland=',xland, 'tsk', tsk
          write(0,*) "Read status:", read_stat
          if (saveoutput) then
              open(output_unit, file = './data/output_'//trim(case)//'.txt')
