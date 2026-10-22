@@ -19,5 +19,6 @@
 	```
 	cd tests
 	make
-	./driver
+	./driver_ccpp
+    ./driver_wrf
 	```
