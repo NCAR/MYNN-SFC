@@ -297,7 +297,7 @@
     xice                        ! not needed in CCPP
 
 ! BWB: for current-relative fluxes
- real(kind_phys),intent(in),dimension(ims:ime,jms:jme):: &
+ real(kind_phys),intent(in),dimension(ims:ime,jms:jme), optional:: &
     uoce,  &
     voce
 
@@ -325,7 +325,7 @@
     fh2
 
  ! BWB: for current-relative fluxes
- real(kind_phys),intent(out),dimension(ims:ime,jms:jme):: &
+ real(kind_phys),intent(out),dimension(ims:ime,jms:jme), optional:: &
     taux,  &
     tauy
  
@@ -499,8 +499,11 @@
        else
           wat_depth_1  = 1000._kind_phys !default to deep ocean, since open oceans >> lakes
        endif
-       uoce_1 = uoce(i,j)    ! BWB: for current-relative fluxes
-       voce_1 = voce(i,j)    ! BWB: for current-relative fluxes
+       ! BWB: for current-relative fluxes
+       uoce_1 = zero
+       if (present(uoce))uoce_1 = uoce(i,j)
+       voce_1 = zero
+       if (present(voce))voce_1 = voce(i,j)
        
        !inout arguments:
        hfx_1    = hfx(i,j)
@@ -790,8 +793,8 @@
        q2(i,j)     = q2_1/(one-qv_1)  !mixing ratio
        wstar(i,j)  = wstar_1
        qstar(i,j)  = qstar_1
-       taux(i,j)   = taux_1    ! BWB: for current-relative fluxes
-       tauy(i,j)   = tauy_1    ! BWB: for current-relative fluxes
+       if (present(taux))taux(i,j) = taux_1    ! BWB: for current-relative fluxes
+       if (present(taux))tauy(i,j) = tauy_1    ! BWB: for current-relative fluxes
 
        !optional output arguments, mostly for ccpp:
        if(present(hflx)) hflx(i,j) = hfx_1/(cp*rho_1)
