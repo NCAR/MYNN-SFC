@@ -794,7 +794,7 @@
        wstar(i,j)  = wstar_1
        qstar(i,j)  = qstar_1
        if (present(taux))taux(i,j) = taux_1    ! BWB: for current-relative fluxes
-       if (present(taux))tauy(i,j) = tauy_1    ! BWB: for current-relative fluxes
+       if (present(tauy))tauy(i,j) = tauy_1    ! BWB: for current-relative fluxes
 
        !optional output arguments, mostly for ccpp:
        if(present(hflx)) hflx(i,j) = hfx_1/(cp*rho_1)
