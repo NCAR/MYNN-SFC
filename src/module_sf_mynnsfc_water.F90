@@ -49,6 +49,12 @@ MODULE module_sf_mynnsfc_water
 !   perturb z0, zt, and zq, along with many other parameters in the MYNN-
 !   EDMF scheme.
 !
+!3) Ben Barr (BWB), October 2026: Implemented surface current-relative flux
+!   calculations.  This involves using the current-relative windspeed in
+!   the flux-gradient relationship for velocity, in allowing the stress vector
+!   to be unaligned with the earth-relative lowest model layer wind vector,
+!   and in correcting u10 and v10 for the presence of the moving bottom boundary.
+!
 !NOTE: This code was primarily tested in static SST mode, so some modifications
 !      are anticipated when moving to a fully-coupled air-sea interaction.     
 !-------------------------------------------------------------------
@@ -144,6 +150,8 @@ CONTAINS
        wstar       , qstar       , qgh         ,               &
        ck          , cka         , cd          , cda         , &
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
+       uoce        , voce        ,                             & !BWB: for current-relative flux calcs, intent(in)
+       taux        , tauy        ,                             & !BWB: for current-relative flux calcs, intent(out)
        !namelist configuration options
        spp_sfc     , sf_mynn_sfcflux_water     , isfflx      , &
        flag_restart,flag_cycle   , psi_opt     ,               &
@@ -192,12 +200,14 @@ real(kind_phys), intent(in) ::  mavail,pblh,xland,psfcpa,dx,lakemask,wat_depth
 real(kind_phys), intent(in) ::  u_1,v_1,u_2,v_2,qv_1,p_1,t_1,dz8w_1,dz8w_2
 real(kind_phys), intent(in) ::  tskin,tsurf,snowh
 real(kind_phys), intent(in) ::  rstoch_1
+real(kind_phys), intent(in) ::  uoce,voce    ! BWB: for current-relative flux calcs
 
 !-----------------------------
 !output
 !-----------------------------
 real(kind_phys), intent(out)::  u10,v10,th2,t2,q2
 real(kind_phys), intent(out)::  wstar
+real(kind_phys), intent(out)::  taux,tauy    ! BWB: for current-relative flux calcs
 
 !-----------------------------
 !in/out
@@ -336,7 +346,10 @@ cpm   = cp*(one+0.84_kind_phys*qv_1)
 !qfx=qflx*rho_1
 !hfx=hflx*rho_1*cp
 
-wspd=sqrt(u_1*u_1 + v_1*v_1)
+! BWB: flux calculations take place in the current-relative framework, using
+! current-relative lowest model level windspeeds.
+wspd=sqrt((u_1-uoce)*(u_1-uoce) + (v_1-voce)*(v_1-voce)) 
+!wspd=sqrt(u_1*u_1 + v_1*v_1) ! Previous calculation based on earth-relative winds
 dthvdz=(thv_1-thvsk)
 !--------------------------------------------------------
 ! Calculate the convective velocity scale (WSTAR) and
@@ -665,7 +678,9 @@ ust=p5*ust + p5*karman*wspd/psix
 stress=ust**2
 
 ! Compute u* without vconv for use in HFX calc when sf_mynn_sfcflux_water > 0
-wspdi=max(sqrt(u_1*u_1 + v_1*v_1), wmin)
+! BWB: wspdi is also used to determine surface stress direction in the presence of currents.
+wspdi=max(sqrt((u_1-uoce)*(u_1-uoce) + (v_1-voce)*(v_1-voce)), wmin)    ! BWB: current-relative windspeed
+!wspdi=max(sqrt(u_1*u_1 + v_1*v_1), wmin) ! BWB: Previous calculation based on earth-relative winds
 ustm=p5*ustm + p5*karman*wspdi/psix
 
 !----------------------------------------------------
@@ -709,6 +724,8 @@ if (isfflx .lt. 1) then
    cqs2 = zero
    cqs  = zero
    cm   = zero
+   taux = zero    ! BWB: Added for current-relative flux calcs
+   tauy = zero    ! BWB: Added for current-relative flux calcs
    if(present(ck)  .and. present(cd) .and. &
      &present(cka) .and. present(cda)) then
         ck = zero
@@ -785,6 +802,14 @@ else
    ch=(karman/psix)*(karman/psit)  !=flhc/( cpm*rho_1 )
    cm=(karman/psix)*(karman/psix)
 
+   !-----------------------------------------
+   !--- BWB: compute surface stress vector components
+   !-----------------------------------------
+   ! Stress vector is in direction of current-relative wind.
+   ! Factor of -1 produces momentum flux bottom BC to the atmosphere.
+   taux=-rho_1*ust*ust*(u_1-uoce)/wspdi    ! [N m-2]
+   tauy=-rho_1*ust*ust*(v_1-voce)/wspdi    ! [N m-2]
+
 endif !end isfflx option
 
 if (compute_diag) then
@@ -805,17 +830,23 @@ if (compute_diag) then
          !u10=u_1*psix10/psix
          !v10=v_1*psix10/psix
          !use neutral-log:
-         u10=u_1*log(ten/zntstoch)/log(za/zntstoch)
-         v10=v_1*log(ten/zntstoch)/log(za/zntstoch)
+         u10=uoce+(u_1-uoce)*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: earth-relative u10 in the presence of current
+         v10=voce+(v_1-voce)*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: earth-relative v10 in the presence of current
+         !u10=u_1*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: previous calc neglecting current
+         !v10=v_1*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: previous calc neglecting current
       endif
    elseif (za .gt. 7.0 .and. za .lt. 13.0) then
       !moderate vertical resolution
-      u10=u_1*log(ten/zntstoch)/log(za/zntstoch)
-      v10=v_1*log(ten/zntstoch)/log(za/zntstoch)
+      u10=uoce+(u_1-uoce)*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: earth-relative u10 in the presence of current
+      v10=voce+(v_1-voce)*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: earth-relative v10 in the presence of current
+      !u10=u_1*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: previous calc neglecting current
+      !v10=v_1*log(ten/zntstoch)/log(za/zntstoch)    ! BWB: previous calc neglecting current
    else
       ! very coarse vertical resolution
-      u10=u_1*psix10/psix
-      v10=v_1*psix10/psix
+      u10=uoce+(u_1-uoce)*psix10/psix    ! BWB: earth-relative u10 in the presence of current
+      v10=voce+(v_1-voce)*psix10/psix    ! BWB: earth-relative v10 in the presence of current
+      !u10=u_1*psix10/psix    ! BWB: previous calc neglecting current
+      !v10=v_1*psix10/psix    ! BWB: previous calc neglecting current
    endif
 
    !-----------------------------------------------------
