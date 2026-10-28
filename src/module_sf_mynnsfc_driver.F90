@@ -569,7 +569,7 @@
        else
           ztpert_1  = zero
        endif
-       if(present(ztpert)) then
+       if(present(vegtype)) then
           vegtype_1 = vegtype(i,j)
        else
           vegtype_1  = 1
