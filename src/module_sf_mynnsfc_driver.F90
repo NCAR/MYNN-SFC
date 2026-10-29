@@ -760,11 +760,13 @@
           lh(i,j)     = lh_1/(one-qv_1)   !mixing ratio flux
           qsfc(i,j)   = qsfc_1/(one-qv_1) !mixing ratio
           qgh(i,j)    = qgh_1/(one-qv_1)  !mixing ratio
+          q2(i,j)     = q2_1/(one-qv_1)   !mixing ratio
        else
           qfx(i,j)    = qfx_1
           lh(i,j)     = lh_1
           qsfc(i,j)   = qsfc_1
           qgh(i,j)    = qgh_1
+          q2(i,j)     = q2_1
        endif
        znt(i,j)    = znt_1
        zol(i,j)    = zol_1
@@ -790,7 +792,6 @@
        v10(i,j)    = v10_1
        th2(i,j)    = th2_1
        t2(i,j)     = t2_1
-       q2(i,j)     = q2_1/(one-qv_1)  !mixing ratio
        wstar(i,j)  = wstar_1
        qstar(i,j)  = qstar_1
        if (present(taux))taux(i,j) = taux_1    ! BWB: for current-relative fluxes
