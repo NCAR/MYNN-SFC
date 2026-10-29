@@ -413,6 +413,13 @@
  else
     loc_cycle = .false.
  endif
+ !optional configuration inputs:
+ loc_redrag = .false.
+ if(present(redrag)) loc_redrag = redrag  !CCPP option from GFS
+ loc_iter   = 1
+ if(present(iter)) loc_iter = iter
+ loc_z0_type= 0
+ if(present(sfc_z0_type)) loc_z0_type = sfc_z0_type !CCPP option from GFS
 
  if (debug_driver > 0) then
     print*,"=======in beginning of mynn sfc driver=============="
@@ -420,7 +427,7 @@
     print*,"restart=",restart," cycling=",loc_cycle
  endif
     
- if (itimestep==1 .and. (.not.(restart) .or. .not.(loc_cycle))) then
+ if (itimestep==1 .and. loc_iter==1 .and. .not.(restart .or. loc_cycle)) then
     !cold starts
     do j = jts,jte
        do i = its,ite
@@ -536,13 +543,6 @@
        taux_1   = zero    ! BWB: for current-relative fluxes
        tauy_1   = zero    ! BWB: for current-relative fluxes
 
-       !optional configuration inputs:
-       loc_redrag = .false.
-       if(present(redrag)) loc_redrag = redrag  !CCPP option from GFS
-       loc_iter   = 1
-       if(present(iter)) loc_iter = iter
-       loc_z0_type= 0
-       if(present(sfc_z0_type)) loc_z0_type = sfc_z0_type !CCPP option from GFS
        !optional array inputs:
        if(present(tsurf)) then
           tsurf_1  = tsurf(i,j)
@@ -760,11 +760,13 @@
           lh(i,j)     = lh_1/(one-qv_1)   !mixing ratio flux
           qsfc(i,j)   = qsfc_1/(one-qv_1) !mixing ratio
           qgh(i,j)    = qgh_1/(one-qv_1)  !mixing ratio
+          q2(i,j)     = q2_1/(one-qv_1)   !mixing ratio
        else
           qfx(i,j)    = qfx_1
           lh(i,j)     = lh_1
           qsfc(i,j)   = qsfc_1
           qgh(i,j)    = qgh_1
+          q2(i,j)     = q2_1
        endif
        znt(i,j)    = znt_1
        zol(i,j)    = zol_1
@@ -790,7 +792,6 @@
        v10(i,j)    = v10_1
        th2(i,j)    = th2_1
        t2(i,j)     = t2_1
-       q2(i,j)     = q2_1/(one-qv_1)  !mixing ratio
        wstar(i,j)  = wstar_1
        qstar(i,j)  = qstar_1
        if (present(taux))taux(i,j) = taux_1    ! BWB: for current-relative fluxes
