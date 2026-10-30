@@ -287,32 +287,19 @@ endif
 ! psfc ( in cmb) is used later in saturation checks
 psfc=psfcpa/1000._kind_phys
 
-if (itimestep == 1) then
-   if (lsm == lsm_ruc .and. qsfc > zero) then
-      qsfcmr=qsfc/(one-qsfc)                !mixing ratio
-   else
-      !tabs = tskin
-      tabs = p99*tskin + p01*t_1
-      !saturation vapor pressure wrt water (bolton 1980):
-      e1=svp1*exp(svp2*(tabs-svpt0)/(tabs-svp3))
-      qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
-      qsfcmr=qsfc/(one-qsfc)                !mixing ratio
-   endif ! lsm
-   if (qsfc>one .or. qsfc<0.) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
+!since lsm is called after sfc layer, qsfc can come from previous time step. may prefer to recalculate...
+! currently using what comes out of the ruc lsm, but recalculating for other lsms.
+if (lsm == lsm_ruc .and. qsfc > zero) then
+   qsfcmr=qsfc/(one-qsfc)                !mixing ratio
 else
-   !since lsm is called after sfc layer, qsfc can come from previous time step. may prefer to recalculate...
-   ! currently using what comes out of the ruc lsm, but recalculating for other lsms.
-   if (lsm == lsm_ruc .and. qsfc > zero) then
-      qsfcmr=qsfc/(one-qsfc)                !mixing ratio
-   else
-      tabs = tskin
-      !tabs = p99*tskin + p01*t_1
-      !saturation vapor pressure wrt water (bolton 1980):
-      e1=svp1*exp(svp2*(tabs-svpt0)/(tabs-svp3))
-      qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
-      qsfcmr=qsfc/(one-qsfc)                !mixing ratio
-   endif
+   tabs = tskin
+   !tabs = p99*tskin + p01*t_1
+   !saturation vapor pressure wrt water (bolton 1980):
+   e1=svp1*exp(svp2*(tabs-svpt0)/(tabs-svp3))
+   qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
+   qsfcmr=qsfc/(one-qsfc)                !mixing ratio
 endif
+if (qsfc>one .or. qsfc<0.) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
 
 !qgh uses values at the lowest model level--not surface
 e1    = svp1*exp(svp2*(t_1-svpt0)/(t_1-svp3))
