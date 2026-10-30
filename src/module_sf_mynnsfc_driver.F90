@@ -452,7 +452,6 @@
        qvmr     = qv3d(i,kts,j)   !mixing ratio
        !convert 3D vars to single point - input only
        dz8w_1   = dz8w(i,kts,j)
-       qv_1     = max(1e-8_kind_phys,qvmr/(one+qvmr)) !convert to specific humidity                                                                                                             
        p_1      = p3d(i,kts,j)
        t_1      = t3d(i,kts,j)
        rho_1    = rho3d(i,kts,j)
@@ -467,10 +466,12 @@
        stress_1 = ust_1**2
        mol_1    = mol(i,j)
        if (dry_mixing_ratio) then
+          qv_1     = max(1e-8_kind_phys,qvmr/(one+qvmr)) !convert to specific humidity
           qsfc_1   = qsfc(i,j)/(one+qvmr)  !convert to specific humidity
           qgh_1    = qgh(i,j)/(one+qvmr)   !convert to specific humidity
           qfx_1    = qfx(i,j)/(one+qvmr)  !specific humidity flux
        else
+          qv_1     = max(1e-8_kind_phys,qvmr)
           qsfc_1   = qsfc(i,j)             !coming in as specific humidity from CCPP
           qgh_1    = qgh(i,j)
           qfx_1    = qfx(i,j)
