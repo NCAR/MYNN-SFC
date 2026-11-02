@@ -152,7 +152,7 @@ CONTAINS
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
        uoce        , voce        ,                             & !BWB: for current-relative flux calcs, intent(in)
        taux        , tauy        ,                             & !BWB: for current-relative flux calcs, intent(out)
-       znt_wav     ,                                           &
+       znt_wav     , xice        ,                             &
        !namelist configuration options
        spp_sfc     , sf_mynn_sfcflux_water     , isfflx      , &
        flag_restart,flag_cycle   , psi_opt     ,               &
@@ -202,7 +202,7 @@ real(kind_phys), intent(in) ::  u_1,v_1,u_2,v_2,qv_1,p_1,t_1,dz8w_1,dz8w_2
 real(kind_phys), intent(in) ::  tskin,tsurf,snowh
 real(kind_phys), intent(in) ::  rstoch_1
 real(kind_phys), intent(in) ::  uoce,voce    ! BWB: for current-relative flux calcs
-real(kind_phys), intent(in) ::  znt_wav
+real(kind_phys), intent(in) ::  znt_wav,xice
 !-----------------------------
 !output
 !-----------------------------
@@ -417,11 +417,11 @@ visc=1.326e-5_kind_phys*(one + 6.542e-3_kind_phys*tc_1 + &
                       4.84e-9_kind_phys*tc_1*tc_1*tc_1)
 
 ! if limits come from the sfc_diff.f
-if (sfc_z0_type < 0) .and. (lakemask < p5) .and. (xice <= zero)             &
-    .and. (znt_wav > 1.0e-9_kind_phys .and. znt_wav < 1.0e-3_kind_phys) then
+if ((sfc_z0_type < 0) .and. (lakemask < p5) .and. (xice <= zero)             &
+    .and. (znt_wav > 1.0e-9_kind_phys .and. znt_wav < 1.0e-3_kind_phys)) then
     ! using wave model derived momentum roughness
-    ! znt = 0.11_kind_phys*visc/max(ustar,0.05_kind_phys) + ztn_wav
-    znt = 0.11_kind_phys*visc/max(ustar,0.05_kind_phys) + ztn_wav
+    ! znt = 0.11_kind_phys*visc/ust + znt_wav
+    znt = 0.11_kind_phys*visc/max(ust,0.05_kind_phys) + znt_wav
     if (redrag) then
         znt = max(min(znt, 3.17e-3_kind_phys),1.0e-07_kind_phys)
     else

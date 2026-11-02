@@ -703,7 +703,7 @@
                  ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
                  psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
                  uoce     = uoce_1    , voce     = voce_1    , taux     = taux_1   , tauy      = tauy_1    , &    ! BWB: for current-relative fluxes
-                 znt_wav  = znt_wav_1 ,                                                                      &
+                 znt_wav  = znt_wav_1 , xice     = xice_1    ,                                               &
                  !configuration options
                  spp_sfc  = spp_pbl   , isfflx   = isfflx    ,sf_mynn_sfcflux_water= sf_mynn_sfcflux_water , &
                  flag_restart= restart, flag_cycle= cycling  , compute_flux        = compute_flux          , &
