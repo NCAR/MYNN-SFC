@@ -274,30 +274,15 @@ endif
 ! psfc ( in cmb) is used later in saturation checks
 psfc=psfcpa/1000._kind_phys
 
-if (itimestep == 1) then
-   !initialize surface specific humidity and mixing ratios
-   tsk = tskin
-   if (lsm == lsm_ruc .and. qsfc > zero) then
-      qsfcmr=qsfc/(one-qsfc)        !mixing ratio
-   else
-      !saturation vapor pressure wrt ice (svp1=.6112; 10*mb)
-      e1=svp1*exp(4648._kind_phys*(one/273.15_kind_phys - one/tsk) - &
-        & 11.64_kind_phys*log(273.15_kind_phys/tsk) + 0.02265_kind_phys*(273.15_kind_phys - tsk))
-      qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
-      qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
-   endif ! lsm
-   if(qsfc>one.or.qsfc<zero) print *,' qsfc=',qsfc," tsk=",tsk," itimestep=",itimestep,i,j
+!for land/ice points qsfc can come from previous time step, may rather recompute...
+! currently using what comes out of the ruc lsm (or seaice module) after check
+if (lsm == lsm_ruc .and. qsfc > zero) then
+   qsfcmr=qsfc/(one-qsfc)                !mixing ratio
 else
-   !for land/ice points qsfc can come from previous time step, may rather recompute...
-   ! currently using what comes out of the ruc lsm (or seaice module) after check
-   if (lsm == lsm_ruc .and. qsfc > zero) then
-      qsfcmr=qsfc/(one-qsfc)                !mixing ratio
-   else
-      e1=svp1*exp(4648._kind_phys*(one/273.15_kind_phys - one/tskin) - &
-        & 11.64_kind_phys*log(273.15_kind_phys/tskin) + 0.02265_kind_phys*(273.15_kind_phys - tskin))
-      qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
-      qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
-   endif
+   e1=svp1*exp(4648._kind_phys*(one/273.15_kind_phys - one/tskin) - &
+      & 11.64_kind_phys*log(273.15_kind_phys/tskin) + 0.02265_kind_phys*(273.15_kind_phys - tskin))
+   qsfc=ep2*e1/(psfc-ep3*e1)             !specific humidity
+   qsfcmr=ep2*e1/(psfc-e1)               !mixing ratio
 endif
 
 !qgh uses values at the lowest model level--not surface
