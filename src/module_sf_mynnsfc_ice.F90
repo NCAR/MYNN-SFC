@@ -131,7 +131,7 @@ CONTAINS
        t2          , q2          , flhc        , flqc        , &
        lh          , gz1oz0      , wspd        , rb          , &
        cpm         , ch          , cm          , rstoch_1    , &
-       wstar       , qstar       ,                             &
+       wstar       , qstar       , zt          ,               &
        ck          , cka         , cd          , cda         , &
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
        !namelist configuration options
@@ -179,7 +179,7 @@ real(kind_phys), intent(in) ::  rstoch_1
 !output
 !-----------------------------
 real(kind_phys), intent(out)::  u10,v10,th2,t2,q2
-real(kind_phys), intent(out)::  wstar
+real(kind_phys), intent(out)::  wstar,zt
 
 !-----------------------------
 !in/out
@@ -199,7 +199,6 @@ real(kind_phys), intent(inout):: ust,cm,rb,stress,                 &
                                  psix,psit,psix10,psit2
 real(kind_phys), intent(inout), optional ::                        &
                                  ck,cka,cd,cda
-
 !--------------------------------------------
 ! local variables
 !--------------------------------------------
@@ -231,7 +230,6 @@ real(kind_phys) ::   &
             gz10oz0, &    !log((10.+znt)/znt)
             gz10ozt, &    !log((10.+zt)/zt)
            zntstoch, &
-                 zt, &
                  zq, &
                psiq, &
               psiq2

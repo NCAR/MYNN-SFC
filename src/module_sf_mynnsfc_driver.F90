@@ -117,7 +117,7 @@
         ch       , ck       , cka      , cd       , cda      ,             &
         stress   , hflx     , qflx     , cm       , fm       , fh        , &
         fm10     , fh2      , tsurf    , water_depth         ,             &
-        xice     , xice_threshold      ,                                   &
+        xice     , xice_threshold      , zt       ,                        &
         uoce     , voce     , taux     , tauy     ,                        &  !BWB: for current-relative fluxes
         znt_wav  ,                                                         &  !for coupling with wave model
         !configuration options
@@ -327,7 +327,8 @@
     fm,    &
     fh,    &
     fm10,  &
-    fh2
+    fh2,   &
+    zt
 
  ! BWB: for current-relative fluxes
  real(kind_phys),intent(out),dimension(ims:ime,jms:jme), optional:: &
@@ -380,7 +381,7 @@
  real(kind_phys) :: hfx_1,qfx_1,lh_1,mol_1,rmol_1,                    &
                      qsfc_1,qgh_1,znt_1,zol_1,ust_1,cpm_1,chs2_1,     &
                      cqs_1,cqs2_1,chs_1,ch_1,flhc_1,flqc_1,gz1oz0_1,  &
-                     wspd_1,br_1,psim_1,psih_1
+                     wspd_1,br_1,psim_1,psih_1,zt_1
  real(kind_phys) :: uoce_1,voce_1,taux_1,tauy_1    ! BWB: for current-relative fluxes
  real(kind_phys) :: znt_wav_1
  real(kind_phys) :: u10_1,v10_1,th2_1,t2_1,q2_1
@@ -552,6 +553,7 @@
        wstar_1  = zero
        taux_1   = zero    ! BWB: for current-relative fluxes
        tauy_1   = zero    ! BWB: for current-relative fluxes
+       zt_1     = one
 
        !optional array inputs:
        if(present(tsurf)) then
@@ -649,7 +651,7 @@
                  snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
                  lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
                  cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
-                 wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
+                 wstar    = wstar_1   , qstar    = qstar_1   , zt       = zt_1     ,                         &
                  ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
                  psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
                  !configuration options
@@ -699,7 +701,7 @@
                  snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
                  lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
                  cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
-                 wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
+                 wstar    = wstar_1   , qstar    = qstar_1   , zt       = zt_1     ,                         &
                  ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
                  psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
                  uoce     = uoce_1    , voce     = voce_1    , taux     = taux_1   , tauy      = tauy_1    , &    ! BWB: for current-relative fluxes
@@ -747,7 +749,7 @@
                  snowh    = snowh_1   , qsfc     = qsfc_1    , qgh      = qgh_1    ,                         &
                  lh       = lh_1      , gz1oz0   = gz1oz0_1  , wspd     = wspd_1   , rb        = br_1      , &
                  cpm      = cpm_1     , ch       = ch_1      , cm       = cm_1     , rstoch_1  = rstoch_1  , &
-                 wstar    = wstar_1   , qstar    = qstar_1   ,                                               &
+                 wstar    = wstar_1   , qstar    = qstar_1   , zt       = zt_1     ,                         &
                  ck       = ck_1      , cka      = cka_1     , cd       = cd_1     , cda       = cda_1     , &
                  psix     = fm_1      , psit     = fh_1      , psix10   = fm10_1   , psit2     = fh2_1     , &
                  !configuration options
@@ -807,6 +809,7 @@
        qstar(i,j)  = qstar_1
        if (present(taux))taux(i,j) = taux_1    ! BWB: for current-relative fluxes
        if (present(tauy))tauy(i,j) = tauy_1    ! BWB: for current-relative fluxes
+       if (present(zt))    zt(i,j) = zt_1
 
        !optional output arguments, mostly for ccpp:
        if(present(hflx)) hflx(i,j) = hfx_1/(cp*rho_1)

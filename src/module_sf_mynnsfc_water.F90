@@ -152,7 +152,7 @@ CONTAINS
        psix        , psit        , psix10      , psit2       , & !fm,fh,fm10,fh2: intent(inout)
        uoce        , voce        ,                             & !BWB: for current-relative flux calcs, intent(in)
        taux        , tauy        ,                             & !BWB: for current-relative flux calcs, intent(out)
-       znt_wav     , xice        ,                             &
+       znt_wav     , xice        , zt          ,               &
        !namelist configuration options
        spp_sfc     , sf_mynn_sfcflux_water     , isfflx      , &
        flag_restart,flag_cycle   , psi_opt     ,               &
@@ -207,7 +207,7 @@ real(kind_phys), intent(in) ::  znt_wav,xice
 !output
 !-----------------------------
 real(kind_phys), intent(out)::  u10,v10,th2,t2,q2
-real(kind_phys), intent(out)::  wstar
+real(kind_phys), intent(out)::  wstar,zt
 real(kind_phys), intent(out)::  taux,tauy    ! BWB: for current-relative flux calcs
 
 !-----------------------------
@@ -228,7 +228,6 @@ real(kind_phys), intent(inout):: ust,cm,rb,stress,                 &
                                  psix,psit,psix10,psit2
 real(kind_phys), intent(inout), optional ::                        &
                                  ck,cka,cd,cda
-
 !--------------------------------------------
 ! local variables
 !--------------------------------------------
@@ -260,7 +259,6 @@ real(kind_phys) ::   &
             gz10oz0, &    !log((10.+znt)/znt)
             gz10ozt, &    !log((10.+zt)/zt)
            zntstoch, &
-                 zt, &
                  zq, &
                psiq, &
               psiq2
