@@ -55,4 +55,5 @@ module module_sf_mynnsfc_common
 !-------     commonly used numbers     -----------------
 !-------------------------------------------------------
  real(kind_phys),parameter:: zero   = 0.0
+ real(kind_phys),parameter:: one    = 1.0
 end module module_sf_mynnsfc_common
