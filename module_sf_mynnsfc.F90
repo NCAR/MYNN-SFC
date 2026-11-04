@@ -76,7 +76,7 @@ MODULE module_sf_mynnsfc
      &                     ep2    => con_eps       !Rd/Rv
 
 !use kind_phys for real-types
-    use machine , only : kind_phys
+    use ccpp_kinds, only : kind_phys
 
 !-------------------------------------------------------------------
   IMPLICIT NONE
@@ -3110,7 +3110,7 @@ END SUBROUTINE SFCLAY1D_mynn
 
       SUBROUTINE znot_m_v6(uref, znotm)
       !$acc routine seq
-      use machine , only : kind_phys
+      use ccpp_kinds, only : kind_phys
       IMPLICIT NONE
 ! Calculate areodynamical roughness over water with input 10-m wind
 ! For low-to-moderate winds, try to match the Cd-U10 relationship from COARE V3.5 (Edson et al. 2013)

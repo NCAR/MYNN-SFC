@@ -1,7 +1,7 @@
 [ccpp-table-properties]
   name = module_sf_mynnsfc_driver
   type = scheme
-  dependencies = ../../../../hooks/machine.F,../../../../hooks/physcons.F90,../module_sf_mynnsfc.F90
+  dependencies = ../../../../hooks/physcons.F90,../module_sf_mynnsfc.F90
 
 ########################################################################
 [ccpp-arg-table]
