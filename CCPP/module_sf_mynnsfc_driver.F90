@@ -93,7 +93,7 @@ SUBROUTINE module_sf_mynnsfc_driver_run(   &
 
 
 ! should be moved to inside the mynn:
-      use machine , only : kind_phys
+      use ccpp_kinds, only : kind_phys
       use physcons, only : cp     => con_cp,              &
      &                     grav   => con_g
 
